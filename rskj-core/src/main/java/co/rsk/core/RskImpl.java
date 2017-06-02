@@ -67,6 +67,7 @@ public class RskImpl extends EthereumImpl implements Rsk {
     public NodeBlockProcessor getNodeBlockProcessor() {
         if (this.nodeBlockProcessor == null) {
             this.nodeBlockProcessor = new NodeBlockProcessor(new BlockStore(), this.getWorldManager().getBlockchain(), this.getWorldManager());
+            this.nodeBlockProcessor.processStoredBlocks();
         }
         return this.nodeBlockProcessor;
     }

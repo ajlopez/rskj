@@ -30,10 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static java.math.BigInteger.ZERO;
 import static org.ethereum.crypto.HashUtil.shortHash;
@@ -226,6 +223,10 @@ public class IndexedBlockStore extends AbstractBlockstore{
             return null;
 
         return new Block(blockRlp);
+    }
+
+    public Set<byte[]> getBlockHashes() {
+        return this.blocks.keys();
     }
 
     @Override

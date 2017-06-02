@@ -25,6 +25,7 @@ import org.ethereum.core.BlockHeader;
 import org.ethereum.core.Blockchain;
 import org.ethereum.core.ImportResult;
 import org.ethereum.db.ByteArrayWrapper;
+import org.ethereum.db.IndexedBlockStore;
 import org.ethereum.manager.WorldManager;
 import org.ethereum.net.server.ChannelManager;
 import org.slf4j.Logger;
@@ -202,11 +203,6 @@ public class NodeBlockProcessor implements BlockProcessor {
         if (blockNumber > this.lastKnownBlockNumber)
             this.lastKnownBlockNumber = blockNumber;
 
-        if (blockNumber >= bestBlockNumber + 1000) {
-            logger.trace("Block too advanced {} {} from {} ", blockNumber, block.getShortHash(), sender != null ? sender.getNodeID().toString() : "N/A");
-            return new BlockProcessResult(false, null);
-        }
-
         if (sender != null) {
             nodeInformation.addBlockToNode(blockHash, sender.getNodeID());
         }
@@ -218,9 +214,8 @@ public class NodeBlockProcessor implements BlockProcessor {
         }
 
         final Set<ByteArrayWrapper> unknownHashes = BlockUtils.unknownDirectAncestorsHashes(block, blockchain, store);
-        final Set<ByteArrayWrapper> unknownAllHashes = BlockUtils.unknownAncestorsHashes(block, blockchain, store);
 
-        this.processMissingHashes(sender, unknownAllHashes);
+        this.processMissingHashes(sender, unknownHashes);
 
         // We can't add the block if there are missing ancestors or uncles. Request the missing blocks to the sender.
         if (!unknownHashes.isEmpty()) {
@@ -244,6 +239,67 @@ public class NodeBlockProcessor implements BlockProcessor {
             sendStatusToAll();
 
         return result;
+    }
+
+    public void processStoredBlocks() {
+        org.ethereum.db.BlockStore store = this.blockchain.getBlockStore();
+
+        if (!(store instanceof IndexedBlockStore))
+            return;
+
+        IndexedBlockStore istore = (IndexedBlockStore)store;
+
+        Set<byte[]> hashes = istore.getBlockHashes();
+        int nhashes = 0;
+        long bestnumber = 0;
+        Block bestblock = null;
+
+        for (byte[] hash : hashes) {
+            Block block = istore.getBlockByHash(hash);
+            nhashes++;
+
+            if (block != null && block.getNumber() > bestnumber) {
+                bestblock = block;
+                bestnumber = block.getNumber();
+            }
+
+            if (nhashes > 100)
+                break;
+        }
+
+        if (bestblock == null)
+            return;
+
+        List<Block> blocks = new ArrayList<>();
+
+        blocks.add(bestblock);
+
+        Block block = bestblock;
+
+        while (block != null && block.getNumber() > 0) {
+            block = istore.getBlockByHash(block.getParentHash());
+
+            if (block != null)
+                blocks.add(block);
+        }
+
+        blocks = BlockUtils.sortBlocksByNumber(blocks);
+
+        logger.trace("processing {} stored blocks", blocks.size());
+
+        for (Block b : blocks) {
+            if (isBlockInBlockhainIndex(b))
+                continue;
+
+            istore.removeBlock(b);
+
+            logger.trace("processing stored block {}", b.getNumber());
+
+            ImportResult result = this.blockchain.tryToConnect(b);
+
+            if (result != ImportResult.IMPORTED_BEST && result != ImportResult.IMPORTED_NOT_BEST)
+                logger.debug("stored block not added {}", b.getNumber());
+        }
     }
 
     private Map<ByteArrayWrapper, ImportResult> connectBlocksAndDescendants(MessageSender sender, List<Block> blocks) {
@@ -340,16 +396,6 @@ public class NodeBlockProcessor implements BlockProcessor {
 
             if (b == null)
                 continue;
-
-            for (BlockHeader uncleHeader : b.getUncleList()) {
-                Block uncle = this.getBlock(uncleHeader.getHash());
-
-                if (uncle != null) {
-                    nodeInformation.addBlockToNode(new ByteArrayWrapper(uncle.getHash()), sender.getNodeID());
-                    logger.trace("Sending uncle block {} {}", uncle.getNumber(), uncle.getShortHash());
-                    sender.sendMessage(new BlockMessage(uncle));
-                }
-            }
 
             nodeInformation.addBlockToNode(new ByteArrayWrapper(b.getHash()), sender.getNodeID());
             logger.trace("Sending block {} {}", b.getNumber(), b.getShortHash());
@@ -469,17 +515,6 @@ public class NodeBlockProcessor implements BlockProcessor {
 
         while (block != null && !this.hasBlockInSomeBlockchain(block.getHash())) {
             BlockUtils.addBlockToList(blocks, block);
-
-            for (BlockHeader uncleHeader : block.getUncleList()) {
-                Block uncle = getBlock(uncleHeader.getHash());
-
-                if (uncle == null)
-                    continue;
-
-                List<Block> uncles = getBlocksNotInBlockchain(uncle);
-
-                BlockUtils.addBlocksToList(blocks, uncles);
-            }
 
             block = this.getBlock(block.getParentHash());
         }

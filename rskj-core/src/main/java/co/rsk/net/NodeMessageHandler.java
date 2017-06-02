@@ -117,6 +117,14 @@ public class NodeMessageHandler implements MessageHandler, Runnable {
     public void postMessage(MessageSender sender, Message message) throws InterruptedException {
         try {
             logger.trace("Start post message (queue size {}) (message type {})", this.queue.size(), message.getMessageType());
+
+            /*
+            if (queue.size() > 100) {
+                queue.clear();
+                logger.trace("clear queue (queue size {})", this.queue.size());
+            }
+            */
+
             this.queue.put(new MessageTask(sender, message));
             logger.trace("End post message (queue size {})", this.queue.size());
         } catch (InterruptedException e) {
@@ -141,10 +149,10 @@ public class NodeMessageHandler implements MessageHandler, Runnable {
 
                 MessageTask task;
 
-                if (this.queue.isEmpty())
+                //if (this.queue.isEmpty())
                     task = this.queue.poll(10, TimeUnit.SECONDS);
-                else
-                    task = this.queue.poll();
+                //else
+                //    task = this.queue.poll();
 
                 loggerMessageProcess.debug("Queued Messages: {}", this.queue.size());
 
