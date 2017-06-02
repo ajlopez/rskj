@@ -62,6 +62,10 @@ public class BlockChainLoader {
             blockStore.load();
 
         Block bestBlock = blockStore.getBestBlock();
+
+        if (bestBlock != null && bestBlock.getNumber() > 50)
+            bestBlock = blockStore.getChainBlockByNumber(bestBlock.getNumber() - 50);
+
         if (bestBlock == null) {
             logger.info("DB is empty - adding Genesis");
 
