@@ -19,6 +19,7 @@
 
 package org.ethereum.net.client;
 
+import co.rsk.config.RskSystemProperties;
 import org.ethereum.config.SystemProperties;
 import org.ethereum.net.eth.EthVersion;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,15 +37,12 @@ import static org.ethereum.net.eth.EthVersion.fromCode;
 /**
  * Created by Anton Nashatyrev on 13.10.2015.
  */
-@Component("configCapabilities")
 public class ConfigCapabilitiesImpl implements ConfigCapabilities{
-    @Autowired
-    SystemProperties config;
+    SystemProperties config = RskSystemProperties.CONFIG;
 
     private SortedSet<Capability> allCaps = new TreeSet<>();
 
-    @PostConstruct
-    private void init() {
+    public void init() {
         if (config.syncVersion() != null) {
             EthVersion eth = fromCode(config.syncVersion());
             if (eth != null) {

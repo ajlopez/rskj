@@ -32,7 +32,6 @@ import org.springframework.stereotype.Component;
  *
  * Created by ajlopez on 29/07/2016.
  */
-@Component
 public class BlockValidatorImpl implements BlockValidator {
 
     private BlockStore blockStore;
@@ -41,7 +40,6 @@ public class BlockValidatorImpl implements BlockValidator {
 
     private BlockValidationRule blockValidator;
 
-    @Autowired
     public BlockValidatorImpl(BlockStore blockStore, BlockParentDependantValidationRule blockParentValidator, @Qualifier("blockValidationRule") BlockValidationRule blockValidator) {
         this.blockStore = blockStore;
         this.blockParentValidator = blockParentValidator;

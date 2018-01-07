@@ -64,23 +64,15 @@ import static org.ethereum.db.IndexedBlockStore.BLOCK_INFO_SERIALIZER;
  * @author Roman Mandeleil
  *         Created on: 27/01/2015 01:05
  */
-@Configuration
-@Import(CommonConfig.class)
 public class DefaultConfig {
     private static Logger logger = LoggerFactory.getLogger("general");
 
-    @Autowired
-    ApplicationContext appCtx;
+    SystemProperties config = RskSystemProperties.CONFIG;
 
-    @Autowired
-    SystemProperties config;
-
-    @PostConstruct
     public void init() {
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> logger.error("Uncaught exception", e));
     }
 
-    @Bean
     public BlockStore blockStore() {
         String database = config.databaseDir();
 
@@ -113,14 +105,12 @@ public class DefaultConfig {
         return indexedBlockStore;
     }
 
-    @Bean
     public ReceiptStore receiptStore() {
         KeyValueDataSource ds = new LevelDbDataSource("receipts");
         ds.init();
         return new ReceiptStoreImpl(ds);
     }
 
-    @Bean
     public HashRateCalculator hashRateCalculator(RskSystemProperties rskSystemProperties, BlockStore blockStore, MiningConfig miningConfig) {
         RskCustomCache<ByteArrayWrapper, BlockHeaderElement> cache = new RskCustomCache<>(60000L);
         if (!rskSystemProperties.minerServerEnabled()) {
@@ -130,7 +120,6 @@ public class DefaultConfig {
         return new HashRateCalculatorMining(blockStore, cache, miningConfig.getCoinbaseAddress());
     }
 
-    @Bean
     public MiningConfig miningConfig(RskSystemProperties rskSystemProperties) {
         return new MiningConfig(
                 rskSystemProperties.coinbaseAddress(),
@@ -147,12 +136,10 @@ public class DefaultConfig {
         );
     }
 
-    @Bean
     public RskSystemProperties rskSystemProperties() {
         return RskSystemProperties.CONFIG;
     }
 
-    @Bean
     public BlockParentDependantValidationRule blockParentDependantValidationRule(
             Repository repository,
             RskSystemProperties config,
@@ -168,7 +155,6 @@ public class DefaultConfig {
         return new BlockParentCompositeRule(blockTxsFieldsValidationRule, blockTxsValidationRule, prevMinGasPriceRule, parentNumberRule, difficultyRule, parentGasLimitRule);
     }
 
-    @Bean(name = "blockValidationRule")
     public BlockValidationRule blockValidationRule(
             BlockStore blockStore,
             RskSystemProperties config,
@@ -193,14 +179,10 @@ public class DefaultConfig {
         return new BlockCompositeRule(new TxsMinGasPriceRule(), blockUnclesValidationRule, new BlockRootValidationRule(), new RemascValidationRule(), blockTimeStampValidationRule, new GasLimitRule(minGasLimit), new ExtraDataRule(maxExtraDataSize));
     }
 
-    @Bean
-    public NetworkStateExporter networkStateExporter() {
-        Repository repository = appCtx.getBean(Repository.class);
+    public NetworkStateExporter networkStateExporter(Repository repository) {
         return new NetworkStateExporter(repository);
     }
 
-
-    @Bean(name = "minerServerBlockValidation")
     public BlockValidationRule minerServerBlockValidationRule(
             BlockStore blockStore,
             RskSystemProperties config,
@@ -220,7 +202,6 @@ public class DefaultConfig {
         return new BlockUnclesValidationRule(blockStore, uncleListLimit, uncleGenLimit, unclesBlockHeaderValidator, unclesBlockParentHeaderValidator);
     }
 
-    @Bean
     public PeerExplorer peerExplorer(RskSystemProperties rskConfig) {
         ECKey key = rskConfig.getMyKey();
         Node localNode = new Node(key.getNodeId(), rskConfig.getExternalIp(), rskConfig.listenPort());
@@ -238,7 +219,6 @@ public class DefaultConfig {
         return new PeerExplorer(initialBootNodes, localNode, distanceTable, key, msgTimeOut, refreshPeriod);
     }
 
-    @Bean
     public UDPServer udpServer(PeerExplorer peerExplorer, RskSystemProperties rskConfig) {
         return new UDPServer(rskConfig.getPeerDiscoveryBindAddress(), rskConfig.listenPort(), peerExplorer);
     }

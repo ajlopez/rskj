@@ -33,7 +33,6 @@ import java.util.*;
  * that aren't accessed frequently will be deleted, as well as peers.
  * Peers will only remember the last maxBlocks blocks that were inserted.
  */
-@Component
 public class BlockNodeInformation {
     private final Map<NodeID, Set<ByteArrayWrapper>> blocksByNode;
     private final LinkedHashMap<ByteArrayWrapper, Set<NodeID>> nodesByBlock;

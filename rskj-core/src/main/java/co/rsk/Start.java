@@ -18,89 +18,207 @@
 
 package co.rsk;
 
+import co.rsk.config.MiningConfig;
 import co.rsk.config.RskSystemProperties;
+import co.rsk.core.NetworkStateExporter;
 import co.rsk.core.Rsk;
+import co.rsk.core.RskFactory;
+import co.rsk.core.bc.BlockValidatorImpl;
+import co.rsk.metrics.HashRateCalculator;
 import co.rsk.mine.MinerClient;
 import co.rsk.mine.MinerServer;
 import co.rsk.mine.TxBuilder;
 import co.rsk.mine.TxBuilderEx;
-import co.rsk.net.Metrics;
+import co.rsk.net.*;
 import co.rsk.net.discovery.UDPServer;
+import co.rsk.net.sync.SyncConfiguration;
 import co.rsk.rpc.CorsConfiguration;
+import co.rsk.validators.BlockParentDependantValidationRule;
+import co.rsk.validators.BlockValidationRule;
+import co.rsk.validators.BlockValidator;
 import org.ethereum.cli.CLIInterface;
+import org.ethereum.config.CommonConfig;
 import org.ethereum.config.DefaultConfig;
-import org.ethereum.core.Repository;
+import org.ethereum.core.*;
+import org.ethereum.db.BlockStore;
+import org.ethereum.db.ReceiptStore;
+import org.ethereum.facade.Ethereum;
+import org.ethereum.listener.CompositeEthereumListener;
+import org.ethereum.listener.EthereumListener;
+import org.ethereum.manager.AdminInfo;
 import org.ethereum.manager.WorldManager;
+import org.ethereum.manager.WorldManagerImpl;
+import org.ethereum.net.client.ConfigCapabilities;
+import org.ethereum.net.client.ConfigCapabilitiesImpl;
+import org.ethereum.net.server.ChannelManager;
+import org.ethereum.net.server.ChannelManagerImpl;
 import org.ethereum.rpc.JsonRpcNettyServer;
 import org.ethereum.rpc.JsonRpcWeb3FilterHandler;
 import org.ethereum.rpc.JsonRpcWeb3ServerHandler;
 import org.ethereum.rpc.Web3;
+import org.ethereum.sync.SyncPool;
+import org.ethereum.vm.program.invoke.ProgramInvokeFactoryImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.stereotype.Component;
 
-@Component
 public class Start {
     private static Logger logger = LoggerFactory.getLogger("start");
 
     private final Rsk rsk;
-    private final WorldManager worldManager;
-    private final UDPServer udpServer;
-    private final MinerServer minerServer;
-    private final MinerClient minerClient;
-    private final RskSystemProperties rskSystemProperties;
-    private final Web3Factory web3Factory;
-    private final Repository repository;
+
+    private WorldManager worldManager;
+    private Blockchain blockchain;
+    private ChannelManager channelManager;
+    private CompositeEthereumListener ethereumListener;
+    private NodeBlockProcessor blockProcessor;
+
+    private UDPServer udpServer;
+    private MinerServer minerServer;
+    private MinerClient minerClient;
+    private Web3Factory web3Factory;
+    private RskSystemProperties rskSystemProperties = RskSystemProperties.CONFIG;
 
     public static void main(String[] args) throws Exception {
-        ApplicationContext ctx = new AnnotationConfigApplicationContext(DefaultConfig.class);
-        Start start = ctx.getBean(Start.class);
+        Start start = new Start();
         start.startNode(args);
     }
 
-    @Autowired
-    public Start(Rsk rsk,
-                 WorldManager worldManager,
-                 UDPServer udpServer,
-                 MinerServer minerServer,
-                 MinerClient minerClient,
-                 RskSystemProperties rskSystemProperties,
-                 Web3Factory web3Factory,
-                 Repository repository) {
-        this.rsk = rsk;
-        this.worldManager = worldManager;
-        this.udpServer = udpServer;
-        this.minerServer = minerServer;
-        this.minerClient = minerClient;
-        this.rskSystemProperties = rskSystemProperties;
-        this.web3Factory = web3Factory;
-        this.repository = repository;
+    private void createObjects(RskFactory rskFactory, CommonConfig commonConfig, DefaultConfig defaultConfig) {
+        this.ethereumListener = new CompositeEthereumListener();
+
+        this.blockchain = createBlockchain(rskFactory, commonConfig, defaultConfig, this.ethereumListener, this.rskSystemProperties);
+        BlockStore blockStore = this.blockchain.getBlockStore();
+        PendingState pendingState = this.blockchain.getPendingState();
+        Repository repository = this.blockchain.getRepository();
+        NetworkStateExporter networkStateExporter = defaultConfig.networkStateExporter(repository);
+        MiningConfig miningConfig = defaultConfig.miningConfig(this.rskSystemProperties);
+        HashRateCalculator hashRateCalculator = defaultConfig.hashRateCalculator(this.rskSystemProperties, blockStore, miningConfig);
+        ConfigCapabilitiesImpl configCapabilities = new ConfigCapabilitiesImpl();
+        configCapabilities.init();
+
+        SyncPool syncPool = rskFactory.getSyncPool(
+                this.ethereumListener,
+                this.blockchain,
+                this.rskSystemProperties,
+                null, // node manager
+                null // sync pool peer client factory
+                );
+
+        this.channelManager = createChannelManager(syncPool);
+
+        BlockNodeInformation blockNodeInformation = new BlockNodeInformation();
+        SyncConfiguration syncConfiguration = rskFactory.getSyncConfiguration(this.rskSystemProperties);
+
+        co.rsk.net.BlockStore orphansBlockStore = new co.rsk.net.BlockStore();
+
+        BlockSyncService blockSyncService = rskFactory.getBlockSyncService(
+                blockchain,
+                orphansBlockStore,
+                blockNodeInformation,
+                syncConfiguration
+        );
+
+        this.blockProcessor = rskFactory.getNodeBlockProcessor(
+                blockchain,
+                orphansBlockStore,
+                blockNodeInformation,
+                blockSyncService,
+                syncConfiguration
+        );
+
+        this.worldManager = new WorldManagerImpl(
+                this.blockchain,
+                blockStore,
+                pendingState,
+                repository,
+                networkStateExporter,
+                hashRateCalculator,
+                configCapabilities,
+                this.rskSystemProperties,
+                this.channelManager,
+                this.ethereumListener,
+                this.blockProcessor
+        );
+    }
+
+    private static Blockchain createBlockchain(RskFactory rskFactory, CommonConfig commonConfig, DefaultConfig defaultConfig, EthereumListener ethereumListener, RskSystemProperties rskSystemProperties) {
+        Repository repository = commonConfig.repository();
+        BlockStore blockStore = defaultConfig.blockStore();
+        ReceiptStore receiptStore = defaultConfig.receiptStore();
+
+        AdminInfo adminInfo = new AdminInfo();
+        adminInfo.init();
+
+        BlockParentDependantValidationRule blockParentValidationRule = null;
+        BlockValidationRule blockValidationRule = null;
+
+        BlockValidator blockValidator = new BlockValidatorImpl(blockStore, blockParentValidationRule, blockValidationRule);
+
+        return rskFactory.getBlockchain(
+                repository,
+                blockStore,
+                receiptStore,
+                ethereumListener,
+                adminInfo,
+                blockValidator,
+                rskSystemProperties
+        );
+    }
+
+    private static ChannelManager createChannelManager(SyncPool syncPool) {
+        ChannelManagerImpl channelManager = new ChannelManagerImpl(syncPool);
+
+        channelManager.init();
+
+        return channelManager;
+    }
+
+    public Start() {
+        RskFactory rskFactory = new RskFactory();
+        CommonConfig commonConfig = new CommonConfig();
+        DefaultConfig defaultConfig = new DefaultConfig();
+        defaultConfig.init();
+
+        this.createObjects(rskFactory, commonConfig, defaultConfig);
+        this.rsk = rskFactory.getRsk(
+                this.worldManager,
+                this.blockchain,
+                this.channelManager,
+                null, // peer server
+                new ProgramInvokeFactoryImpl(),
+                this.blockchain.getPendingState(),
+                this.rskSystemProperties,
+                this.ethereumListener,
+                this.blockchain.getReceiptStore(),
+                null, // peer scoring manager
+                this.blockProcessor,
+                null, // node message handler
+                this.rskSystemProperties,
+                this.blockchain.getRepository()
+        );
     }
 
     public void startNode(String[] args) throws Exception {
         logger.info("Starting RSK");
 
-        CLIInterface.call(rskSystemProperties, args);
+        CLIInterface.call(RskSystemProperties.CONFIG, args);
 
-        if (!"".equals(rskSystemProperties.blocksLoader())) {
-            rskSystemProperties.setSyncEnabled(Boolean.FALSE);
-            rskSystemProperties.setDiscoveryEnabled(Boolean.FALSE);
+        if (!"".equals(RskSystemProperties.CONFIG.blocksLoader())) {
+            RskSystemProperties.CONFIG.setSyncEnabled(Boolean.FALSE);
+            RskSystemProperties.CONFIG.setDiscoveryEnabled(Boolean.FALSE);
         }
 
-        Metrics.registerNodeID(rskSystemProperties.nodeId());
+        Metrics.registerNodeID(RskSystemProperties.CONFIG.nodeId());
 
-        if (rskSystemProperties.simulateTxs()) {
+        if (RskSystemProperties.CONFIG.simulateTxs()) {
             enableSimulateTxs(rsk);
         }
 
-        if (rskSystemProperties.simulateTxsEx()) {
+        if (RskSystemProperties.CONFIG.simulateTxsEx()) {
             enableSimulateTxsEx(rsk, worldManager);
         }
 
-        if (rskSystemProperties.isRpcEnabled()) {
+        if (RskSystemProperties.CONFIG.isRpcEnabled()) {
             logger.info("RPC enabled");
             enableRpc();
         }
@@ -108,19 +226,19 @@ public class Start {
             logger.info("RPC disabled");
         }
 
-        if (rskSystemProperties.waitForSync()) {
+        if (RskSystemProperties.CONFIG.waitForSync()) {
             waitRskSyncDone(rsk);
         }
 
-        if (rskSystemProperties.minerServerEnabled()) {
+        if (RskSystemProperties.CONFIG.minerServerEnabled()) {
             minerServer.start();
 
-            if (rskSystemProperties.minerClientEnabled()) {
+            if (RskSystemProperties.CONFIG.minerClientEnabled()) {
                 minerClient.mine();
             }
         }
 
-        if (rskSystemProperties.peerDiscovery()) {
+        if (RskSystemProperties.CONFIG.peerDiscovery()) {
             enablePeerDiscovery();
         }
     }
@@ -144,11 +262,11 @@ public class Start {
     }
 
     private void enableSimulateTxs(Rsk rsk) {
-        new TxBuilder(rsk, worldManager.getNodeBlockProcessor(), repository).simulateTxs();
+        new TxBuilder(rsk, this.worldManager.getNodeBlockProcessor(), this.blockchain.getRepository()).simulateTxs();
     }
 
     private void enableSimulateTxsEx(Rsk rsk, WorldManager worldManager) {
-        new TxBuilderEx().simulateTxs(rsk, worldManager, rskSystemProperties, repository);
+        new TxBuilderEx().simulateTxs(rsk, worldManager, this.rskSystemProperties, this.blockchain.getRepository());
     }
 
     private void waitRskSyncDone(Rsk rsk) throws InterruptedException {

@@ -80,13 +80,10 @@ import org.springframework.context.annotation.Configuration;
 import javax.annotation.Nullable;
 import java.util.stream.Collectors;
 
-@Configuration
-@ComponentScan("org.ethereum")
 public class RskFactory {
 
     private static final Logger logger = LoggerFactory.getLogger("general");
 
-    @Bean
     public Rsk getRsk(WorldManager worldManager,
                       Blockchain blockchain,
                       ChannelManager channelManager,
@@ -95,7 +92,7 @@ public class RskFactory {
                       PendingState pendingState,
                       SystemProperties config,
                       CompositeEthereumListener compositeEthereumListener,
-                      ReceiptStore receiptStore,
+                       ReceiptStore receiptStore,
                       PeerScoringManager peerScoringManager,
                       NodeBlockProcessor nodeBlockProcessor,
                       NodeMessageHandler nodeMessageHandler,
@@ -169,13 +166,11 @@ public class RskFactory {
                 nodePunhishmentMaximumDuration), new PunishmentParameters(addressPunishmentDuration, addressPunishmentIncrement, addressPunishmentMaximunDuration));
     }
 
-    @Bean
     public NodeBlockProcessor getNodeBlockProcessor(Blockchain blockchain, BlockStore blockStore,
                                                     BlockNodeInformation blockNodeInformation, BlockSyncService blockSyncService, SyncConfiguration syncConfiguration) {
         return new NodeBlockProcessor(blockStore, blockchain, blockNodeInformation, blockSyncService, syncConfiguration);
     }
 
-    @Bean
     public SyncProcessor getSyncProcessor(Blockchain blockchain,
                                           BlockSyncService blockSyncService,
                                           PeerScoringManager peerScoringManager,
@@ -187,7 +182,6 @@ public class RskFactory {
         return new SyncProcessor(blockchain, blockSyncService, peerScoringManager, syncConfiguration, proofOfWorkRule, difficultyCalculator);
     }
 
-    @Bean
     public BlockSyncService getBlockSyncService(Blockchain blockchain,
                                                 BlockStore store,
                                                 BlockNodeInformation nodeInformation,
@@ -195,7 +189,6 @@ public class RskFactory {
             return new BlockSyncService(store, blockchain, nodeInformation, syncConfiguration);
     }
 
-    @Bean
     public NodeMessageHandler getNodeMessageHandler(NodeBlockProcessor nodeBlockProcessor,
                                                     SyncProcessor syncProcessor,
                                                     ChannelManager channelManager,
@@ -216,17 +209,14 @@ public class RskFactory {
         return nodeMessageHandler;
     }
 
-    @Bean
     public SyncPool getSyncPool(EthereumListener ethereumListener, Blockchain blockchain, SystemProperties config, NodeManager nodeManager, SyncPool.PeerClientFactory peerClientFactory) {
         return new SyncPool(ethereumListener, blockchain, config, nodeManager, peerClientFactory);
     }
 
-    @Bean
     public TxHandler getTxHandler(WorldManager worldManager, Repository repository, Blockchain blockchain) {
         return new TxHandlerImpl(worldManager, repository, blockchain);
     }
 
-    @Bean
     public Start.Web3Factory getWeb3Factory(Rsk rsk,
                                             WorldManager worldManager,
                                             RskSystemProperties config,
@@ -243,7 +233,6 @@ public class RskFactory {
         return () -> new Web3RskImpl(rsk, worldManager, config, minerClient, minerServer, personalModule, ethModule, channelManager, repository, peerScoringManager, networkStateExporter, blockStore, peerServer);
     }
 
-    @Bean
     public BlockChainImpl getBlockchain(org.ethereum.core.Repository repository,
                                         org.ethereum.db.BlockStore blockStore,
                                         ReceiptStore receiptStore,
@@ -263,7 +252,6 @@ public class RskFactory {
         );
     }
 
-    @Bean
     public PendingState getPendingState(BlockChainImpl blockchain,
                                         org.ethereum.db.BlockStore blockStore,
                                         org.ethereum.core.Repository repository,
@@ -279,19 +267,16 @@ public class RskFactory {
         return pendingState;
     }
 
-    @Bean
     public SyncPool.PeerClientFactory getPeerClientFactory(SystemProperties config,
                                                            EthereumListener ethereumListener,
                                                            EthereumChannelInitializerFactory ethereumChannelInitializerFactory) {
         return () -> new PeerClient(config, ethereumListener, ethereumChannelInitializerFactory);
     }
 
-    @Bean
     public EthereumChannelInitializerFactory getEthereumChannelInitializerFactory(ChannelManager channelManager, EthereumChannelInitializer.ChannelFactory channelFactory) {
         return remoteId -> new EthereumChannelInitializer(remoteId, channelManager, channelFactory);
     }
 
-    @Bean
     public EthereumChannelInitializer.ChannelFactory getChannelFactory(SystemProperties config,
                                                                        EthereumListener ethereumListener,
                                                                        ConfigCapabilities configCapabilities,
@@ -367,7 +352,6 @@ public class RskFactory {
         }
     }
 
-    @Bean
     public SyncConfiguration getSyncConfiguration(RskSystemProperties config) {
         int expectedPeers = config.getExpectedPeers();
         int timeoutWaitingPeers = config.getTimeoutWaitingPeers();

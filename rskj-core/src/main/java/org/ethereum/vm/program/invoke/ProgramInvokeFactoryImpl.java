@@ -39,7 +39,6 @@ import static org.apache.commons.lang3.ArrayUtils.nullToEmpty;
  * @author Roman Mandeleil
  * @since 08.06.2014
  */
-@Component("ProgramInvokeFactory")
 public class ProgramInvokeFactoryImpl implements ProgramInvokeFactory {
 
     private static final Logger logger = LoggerFactory.getLogger("VM");

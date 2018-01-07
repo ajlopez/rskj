@@ -29,7 +29,6 @@ import java.util.List;
  * @author Roman Mandeleil
  * @since 11.12.2014
  */
-@Component
 public class AdminInfo {
 
 
@@ -38,7 +37,6 @@ public class AdminInfo {
     private List<Long> blockExecTime = new LinkedList<>();
 
 
-    @PostConstruct
     public void init() {
         startupTimeStamp = System.currentTimeMillis();
     }

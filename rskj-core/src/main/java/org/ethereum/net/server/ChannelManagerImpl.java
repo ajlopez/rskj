@@ -19,6 +19,7 @@
 
 package org.ethereum.net.server;
 
+import co.rsk.config.RskSystemProperties;
 import co.rsk.net.Metrics;
 import co.rsk.net.NodeID;
 import co.rsk.net.Status;
@@ -59,7 +60,6 @@ import java.util.stream.Collectors;
  * @author Roman Mandeleil
  * @since 11.11.2014
  */
-@Component("ChannelManager")
 public class ChannelManagerImpl implements ChannelManager {
 
     private static final Logger logger = LoggerFactory.getLogger("net");
@@ -70,10 +70,14 @@ public class ChannelManagerImpl implements ChannelManager {
     // too active peers
     private static final int INBOUND_CONNECTION_BAN_TIMEOUT = 10 * 1000;
     private final Map<ByteArrayWrapper, Channel> activePeers = Collections.synchronizedMap(new HashMap<>());
-    @Autowired
-    SystemProperties config;
-    @Autowired
+
+    SystemProperties config = RskSystemProperties.CONFIG;
+
     SyncPool syncPool;
+
+    public ChannelManagerImpl(SyncPool syncPool) {
+        this.syncPool = syncPool;
+    }
 
     // Using a concurrent list
     // (the add and remove methods copy an internal array,
@@ -85,7 +89,6 @@ public class ChannelManagerImpl implements ChannelManager {
     private Map<InetAddress, Date> recentlyDisconnected = Collections.synchronizedMap(new LRUMap<InetAddress, Date>(500));
     private NodeFilter trustedPeers;
 
-    @PostConstruct
     public void init() {
         maxActivePeers = config.maxActivePeers();
         trustedPeers = config.peerTrusted();

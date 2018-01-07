@@ -41,18 +41,12 @@ import java.util.*;
 
 import static java.util.Arrays.asList;
 
-@Configuration
-@ComponentScan(
-        basePackages = { "org.ethereum", "co.rsk" },
-        excludeFilters = @ComponentScan.Filter(NoAutoscan.class))
 public class CommonConfig {
 
     private static final Logger logger = LoggerFactory.getLogger("general");
 
-    @Autowired
     SystemProperties config = RskSystemProperties.CONFIG;
 
-    @Bean
     public Repository repository() {
         String databaseDir = config.databaseDir();
         if (config.databaseReset()){
@@ -72,7 +66,6 @@ public class CommonConfig {
         return ds;
     }
 
-    @Bean
     public Set<PendingTransaction> wireTransactions() {
         String storage = "LevelDB";
         try {
@@ -83,12 +76,10 @@ public class CommonConfig {
         }
     }
 
-    @Bean
     public List<Transaction> pendingStateTransactions() {
         return Collections.synchronizedList(new ArrayList<Transaction>());
     }
 
-    @Bean
     public ParentBlockHeaderValidator parentHeaderValidator(RskSystemProperties config, DifficultyCalculator difficultyCalculator) {
 
         List<DependentBlockHeaderRule> rules = new ArrayList<>(asList(

@@ -45,7 +45,8 @@ public class ChannelManagerImplTest {
 
     @Before
     public void setUp() {
-        channelManagerImpl = new ChannelManagerImpl();
+        // TODO Review setup
+        //channelManagerImpl = new ChannelManagerImpl();
     }
 
     @Test

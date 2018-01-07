@@ -46,7 +46,6 @@ import javax.annotation.PreDestroy;
  * @author Roman Mandeleil
  * @since 01.06.2014
  */
-@Component
 public class WorldManagerImpl implements WorldManager {
 
     private static final Logger logger = LoggerFactory.getLogger("general");
@@ -63,7 +62,6 @@ public class WorldManagerImpl implements WorldManager {
     private final EthereumListener listener;
     private final BlockProcessor nodeBlockProcessor;
 
-    @Autowired
     public WorldManagerImpl(Blockchain blockchain,
                             BlockStore blockStore,
                             PendingState pendingState,
@@ -119,7 +117,8 @@ public class WorldManagerImpl implements WorldManager {
     }
 
     @Override
-    @PreDestroy
+    // TODO add hook on stop
+    // @PreDestroy
     public void close() {
         repository.close();
         blockchain.close();
