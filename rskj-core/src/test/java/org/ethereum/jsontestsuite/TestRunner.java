@@ -19,6 +19,7 @@
 
 package org.ethereum.jsontestsuite;
 
+import co.rsk.config.RskSystemProperties;
 import co.rsk.core.bc.BlockChainImpl;
 import co.rsk.core.bc.PendingStateImpl;
 import co.rsk.db.RepositoryImpl;
@@ -34,14 +35,12 @@ import org.ethereum.jsontestsuite.validators.BlockHeaderValidator;
 import org.ethereum.jsontestsuite.validators.RepositoryValidator;
 import org.ethereum.listener.CompositeEthereumListener;
 import org.ethereum.listener.EthereumListener;
-import org.ethereum.manager.AdminInfo;
 import org.ethereum.util.ByteUtil;
 import org.ethereum.vm.DataWord;
 import org.ethereum.vm.LogInfo;
 import org.ethereum.vm.VM;
 import org.ethereum.vm.program.Program;
 import org.ethereum.vm.program.invoke.ProgramInvoke;
-import org.ethereum.vm.program.invoke.ProgramInvokeFactoryImpl;
 import org.ethereum.vm.program.invoke.ProgramInvokeImpl;
 import org.ethereum.vm.trace.ProgramTrace;
 import org.slf4j.Logger;
@@ -104,13 +103,13 @@ public class TestRunner {
         ds.init();
         ReceiptStore receiptStore = new ReceiptStoreImpl(ds);
 
-        BlockChainImpl blockchain = new BlockChainImpl(repository, blockStore, receiptStore, null, null, null, new DummyBlockValidator());
+        BlockChainImpl blockchain = new BlockChainImpl(repository, blockStore, receiptStore, null, null, null, new DummyBlockValidator(), RskSystemProperties.CONFIG);
         //BlockchainImpl blockchain = new BlockchainImpl(blockStore, repository, wallet, adminInfo, listener,
         //        new CommonConfig().parentHeaderValidator(), receiptStore);
 
         blockchain.setNoValidation(true);
 
-        PendingStateImpl pendingState = new PendingStateImpl(blockchain, repository, null, null, listener, 10, 100);
+        PendingStateImpl pendingState = new PendingStateImpl(blockchain, repository, null, null, listener, RskSystemProperties.CONFIG, 10, 100);
         pendingState.init();
 
         blockchain.setBestBlock(genesis);
@@ -223,7 +222,7 @@ public class TestRunner {
 
             ProgramInvoke programInvoke = new ProgramInvokeImpl(address, origin, caller, balance,
                     gasPrice, gas, callValue, msgData, lastHash, coinbase,
-                    timestamp, number, difficulty, gaslimit, repository, new BlockStoreDummy(), true);
+                    timestamp, number, 0, difficulty, gaslimit, repository, new BlockStoreDummy(), true);
 
             /* 3. Create Program - exec.code */
             /* 4. run VM */

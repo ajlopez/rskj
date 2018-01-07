@@ -25,7 +25,9 @@ import org.ethereum.util.RLP;
 import org.ethereum.util.RLPElement;
 import org.ethereum.util.RLPItem;
 import org.ethereum.util.RLPList;
+import org.spongycastle.util.BigIntegers;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 
 /**
@@ -52,10 +54,11 @@ public class TransactionInfo {
 
         receipt = new TransactionReceipt(receiptRLP.getRLPData());
         blockHash = blockHashRLP.getRLPData();
-        if (indexRLP.getRLPData() == null)
+        if (indexRLP.getRLPData() == null) {
             index = 0;
-        else
-            index = RLP.decodeInt(indexRLP.getRLPData(), 0);
+        } else {
+            index = BigIntegers.fromUnsignedByteArray(indexRLP.getRLPData()).intValue();
+        }
     }
 
     public void setTransaction(Transaction tx){

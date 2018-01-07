@@ -92,8 +92,8 @@ public class ChannelManagerImpl implements ChannelManager {
         mainWorker.scheduleWithFixedDelay((Runnable) () -> {
             try {
                 processNewPeers();
-            } catch (Throwable t) {
-                logger.error("Error", t);
+            } catch (Exception e) {
+                logger.error("Error", e);
             }
         }, 0, 1, TimeUnit.SECONDS);
     }
@@ -115,13 +115,15 @@ public class ChannelManagerImpl implements ChannelManager {
     }
 
     private ReasonCode getNewPeerDisconnectionReason(Channel peer) {
-        if(activePeers.containsKey(peer.getNodeIdWrapper()))
+        if(activePeers.containsKey(peer.getNodeIdWrapper())) {
             return ReasonCode.DUPLICATE_PEER;
+        }
 
         if (!peer.isActive() &&
                 activePeers.size() >= maxActivePeers &&
-                !trustedPeers.accept(peer.getNode()))
+                !trustedPeers.accept(peer.getNode())) {
             return ReasonCode.TOO_MANY_PEERS;
+        }
 
         return null;
     }
@@ -213,6 +215,25 @@ public class ChannelManagerImpl implements ChannelManager {
         return res;
     }
 
+    @Nonnull
+    public Set<NodeID> broadcastBlockHash(@Nonnull final List<BlockIdentifier> identifiers, @Nullable final Set<NodeID> targets) {
+        final Set<NodeID> res = new HashSet<>();
+        final EthMessage newBlockHash = new RskMessage(new NewBlockHashesMessage(identifiers));
+
+        synchronized (activePeers) {
+            activePeers.values().forEach(c -> logger.trace("RSK activePeers: {}", c));
+
+            activePeers.values().stream()
+                    .filter(p -> targets == null || targets.contains(new NodeID(p.getNodeId())))
+                    .forEach(peer -> {
+                        logger.trace("RSK announce hash: {}", peer);
+                        peer.sendMessage(newBlockHash);
+                    });
+        }
+
+        return res;
+    }
+
     /**
      * broadcastTransaction Propagates a transaction message across active peers with exclusion of
      * the peers with an id belonging to the skip set.
@@ -276,7 +297,7 @@ public class ChannelManagerImpl implements ChannelManager {
     /**
      * Propagates the new block message across active peers with exclusion of
      * 'receivedFrom' peer.
-     *
+     * @deprecated
      * @param block        new Block to be sent
      * @param receivedFrom the peer which sent original message or null if
      *                     the block has been mined by us
@@ -313,8 +334,9 @@ public class ChannelManagerImpl implements ChannelManager {
     public void onSyncDone(boolean done) {
 
         synchronized (activePeers) {
-            for (Channel channel : activePeers.values())
+            for (Channel channel : activePeers.values()) {
                 channel.onSyncDone(done);
+            }
         }
     }
 

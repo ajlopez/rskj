@@ -24,7 +24,10 @@ import org.ethereum.db.TransactionInfo;
 import org.ethereum.rpc.LogFilterElement;
 import org.ethereum.vm.LogInfo;
 
+import java.util.Arrays;
+
 import static org.ethereum.rpc.TypeConverter.toJsonHex;
+
 
 /**
  * Created by Ruben on 5/1/2016.
@@ -42,16 +45,19 @@ public class TransactionReceiptDTO {
     public String from;
     public String to;
     public String root;
+    public String status;
 
     public  TransactionReceiptDTO(Block block, TransactionInfo txInfo) {
 
         TransactionReceipt receipt = txInfo.getReceipt();
 
+        status = toJsonHex(txInfo.getReceipt().getStatus());
         blockHash = toJsonHex(txInfo.getBlockHash());
         blockNumber = toJsonHex(block.getNumber());
 
-        if (receipt.getTransaction().getContractAddress() != null)
+        if (receipt.getTransaction().getContractAddress() != null) {
             contractAddress = toJsonHex(receipt.getTransaction().getContractAddress());
+        }
 
         cumulativeGasUsed = toJsonHex(receipt.getCumulativeGas());
         from = toJsonHex(receipt.getTransaction().getSender());

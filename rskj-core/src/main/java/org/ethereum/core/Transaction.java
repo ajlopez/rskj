@@ -65,6 +65,8 @@ public class Transaction implements SerializableObject {
     private static final PanicProcessor panicProcessor = new PanicProcessor();
     private static final BigInteger SECP256K1N_HALF = Constants.getSECP256K1N().divide(BigInteger.valueOf(2));
 
+    public static final int DATAWORD_LENGTH = 32;
+
     /* SHA3 hash of the RLP encoded transaction */
     private byte[] hash;
 
@@ -159,18 +161,21 @@ public class Transaction implements SerializableObject {
     }
 
     private byte extractChainIdFromV(byte v) {
-        if (v == LOWER_REAL_V || v == (LOWER_REAL_V + 1))
+        if (v == LOWER_REAL_V || v == (LOWER_REAL_V + 1)) {
             return 0;
+        }
         return (byte) (((0x00FF & v) - CHAIN_ID_INC) / 2);
     }
 
     private byte getRealV(byte v) {
-        if (v == LOWER_REAL_V || v == (LOWER_REAL_V + 1))
+        if (v == LOWER_REAL_V || v == (LOWER_REAL_V + 1)) {
             return v;
+        }
         byte realV = LOWER_REAL_V;
         int inc = 0;
-        if ((int) v % 2 == 0)
+        if ((int) v % 2 == 0) {
             inc = 1;
+        }
         return (byte) (realV + inc);
     }
 
@@ -178,10 +183,11 @@ public class Transaction implements SerializableObject {
     // "return (this.isContractCreation() ? GasCost.TRANSACTION_CREATE_CONTRACT : GasCost.TRANSACTION)
     //         + zeroVals * GasCost.TX_ZERO_DATA + nonZeroes * GasCost.TX_NO_ZERO_DATA;"
     public long transactionCost(Block block){
-        if (!parsed)
+        if (!parsed) {
             rlpParse();
+        }
 
-		//Federators txs to the bridge are free during system setup
+		// Federators txs to the bridge are free during system setup
         if (BridgeUtils.isFreeBridgeTx(this, block.getNumber())) {
             return 0;
         }
@@ -189,7 +195,41 @@ public class Transaction implements SerializableObject {
         long nonZeroes = this.nonZeroDataBytes();
         long zeroVals  = ArrayUtils.getLength(this.getData()) - nonZeroes;
 
-        return GasCost.TRANSACTION + zeroVals * GasCost.TX_ZERO_DATA + nonZeroes * GasCost.TX_NO_ZERO_DATA;
+        return (this.isContractCreation() ? GasCost.TRANSACTION_CREATE_CONTRACT : GasCost.TRANSACTION) + zeroVals * GasCost.TX_ZERO_DATA + nonZeroes * GasCost.TX_NO_ZERO_DATA;
+    }
+
+    public void verify() {
+        rlpParse();
+        validate();
+    }
+
+    private void validate() {
+        if (getNonce().length > DATAWORD_LENGTH) {
+            throw new RuntimeException("Nonce is not valid");
+        }
+        if (receiveAddress != null && receiveAddress.length != 0 && receiveAddress.length != Constants.getMaxAddressByteLength()) {
+            throw new RuntimeException("Receive address is not valid");
+        }
+        if (gasLimit.length > DATAWORD_LENGTH) {
+            throw new RuntimeException("Gas Limit is not valid");
+        }
+        if (gasPrice != null && gasPrice.length > DATAWORD_LENGTH) {
+            throw new RuntimeException("Gas Price is not valid");
+        }
+        if (value != null  && value.length > DATAWORD_LENGTH) {
+            throw new RuntimeException("Value is not valid");
+        }
+        if (getSignature() != null) {
+            if (BigIntegers.asUnsignedByteArray(signature.r).length > DATAWORD_LENGTH) {
+                throw new RuntimeException("Signature R is not valid");
+            }
+            if (BigIntegers.asUnsignedByteArray(signature.s).length > DATAWORD_LENGTH) {
+                throw new RuntimeException("Signature S is not valid");
+            }
+            if (getSender() != null && getSender().length != Constants.getMaxAddressByteLength()) {
+                throw new RuntimeException("Sender is not valid");
+            }
+        }
     }
 
     public void rlpParse() {
@@ -204,8 +244,9 @@ public class Transaction implements SerializableObject {
         // only parse signature in case tx is signed
         if (transaction.get(6).getRLPData() != null) {
             byte[] vData =  transaction.get(6).getRLPData();
-            if (vData.length != 1 )
+            if (vData.length != 1 ) {
                 throw new TransactionException("Signature V is invalid");
+            }
             byte v = vData[0];
             this.chainId = extractChainIdFromV(v);
             byte[] r = transaction.get(7).getRLPData();
@@ -223,52 +264,59 @@ public class Transaction implements SerializableObject {
     }
 
     public byte[] getHash() {
-        if (!parsed)
+        if (!parsed) {
             rlpParse();
+        }
 
         byte[] plainMsg = this.getEncoded();
         return HashUtil.sha3(plainMsg);
     }
 
     public byte[] getRawHash() {
-        if (!parsed)
+        if (!parsed) {
             rlpParse();
+        }
 
         byte[] plainMsg = this.getEncodedRaw();
         return HashUtil.sha3(plainMsg);
     }
 
     public byte[] getNonce() {
-        if (!parsed)
+        if (!parsed) {
             rlpParse();
+        }
 
         return nonce == null ? ZERO_BYTE_ARRAY : nonce;
     }
 
     public byte[] getValue() {
-        if (!parsed)
+        if (!parsed) {
             rlpParse();
+        }
 
         return value == null ? ZERO_BYTE_ARRAY : value;
     }
 
     public byte[] getReceiveAddress() {
-        if (!parsed)
+        if (!parsed) {
             rlpParse();
+        }
 
         return receiveAddress;
     }
 
     public byte[] getGasPrice() {
-        if (!parsed)
+        if (!parsed) {
             rlpParse();
+        }
 
         return gasPrice == null ? ZERO_BYTE_ARRAY : gasPrice;
     }
 
     public byte[] getGasLimit() {
-        if (!parsed)
+        if (!parsed) {
             rlpParse();
+        }
 
         return gasLimit;
     }
@@ -282,42 +330,54 @@ public class Transaction implements SerializableObject {
     }
 
     public long nonZeroDataBytes() {
-        if (data == null)
+        if (data == null) {
             return 0;
+        }
 
         int counter = 0;
         for (final byte aData : data) {
-            if (aData != 0)
+            if (aData != 0) {
                 ++counter;
+            }
         }
         return counter;
     }
 
     public byte[] getData() {
-        if (!parsed)
+        if (!parsed) {
             rlpParse();
+        }
 
         return data;
     }
 
     public ECDSASignature getSignature() {
-        if (!parsed)
+        if (!parsed) {
             rlpParse();
+        }
 
         return signature;
     }
 
     public boolean acceptTransactionSignature() {
-        if (!getSignature().validateComponents())
+        ECDSASignature signature = getSignature();
+        if (signature == null) {
             return false;
+        }
 
-        if (getSignature().s.compareTo(SECP256K1N_HALF) >= 0)
+        if (!signature.validateComponents()) {
             return false;
+        }
+
+        if (signature.s.compareTo(SECP256K1N_HALF) >= 0) {
+            return false;
+        }
 
         byte chId = this.getChainId();
 
-        if (chId !=0 && chId != RskSystemProperties.CONFIG.getBlockchainConfig().getCommonConstants().getChainId())
+        if (chId !=0 && chId != RskSystemProperties.CONFIG.getBlockchainConfig().getCommonConstants().getChainId()) {
             return false;
+        }
 
         return true;
     }
@@ -330,17 +390,29 @@ public class Transaction implements SerializableObject {
     }
 
     public byte[] getContractAddress() {
-        if (!isContractCreation())
+        if (!isContractCreation()) {
             return null;
+        }
 
         return HashUtil.calcNewAddr(this.getSender(), this.getNonce());
     }
 
     public boolean isContractCreation() {
-        if (!parsed)
+        if (!parsed) {
             rlpParse();
+        }
 
-        return this.receiveAddress == null || Arrays.equals(this.receiveAddress,ByteUtil.EMPTY_BYTE_ARRAY);
+        if (this.receiveAddress == null) {
+            return true;
+        }
+
+        for (int k = 0; k < this.receiveAddress.length; k++) {
+            if (this.receiveAddress[k] != 0) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /*
@@ -368,15 +440,17 @@ public class Transaction implements SerializableObject {
     }
 
     public byte getChainId() {
-        if (!parsed)
+        if (!parsed) {
             rlpParse();
+        }
         return chainId;
     }
 
     @Override
     public String toString() {
-        if (!parsed)
+        if (!parsed) {
             rlpParse();
+        }
 
         return "TransactionData [" + "hash=" + ByteUtil.toHexString(hash) +
                 "  nonce=" + ByteUtil.toHexString(nonce) +
@@ -397,11 +471,13 @@ public class Transaction implements SerializableObject {
      */
     public byte[] getEncodedRaw() {
 
-        if (!parsed)
+        if (!parsed) {
             rlpParse();
+        }
 
-        if (rlpRaw != null)
+        if (rlpRaw != null) {
             return rlpRaw;
+        }
 
         // parse null as 0 for nonce
         byte[] toEncodeNonce = null;
@@ -434,8 +510,9 @@ public class Transaction implements SerializableObject {
     }
 
     public byte[] getEncoded() {
-        if (rlpEncoded != null)
+        if (rlpEncoded != null) {
             return rlpEncoded;
+        }
 
         // parse null as 0 for nonce
         byte[] toEncodeNonce = null;
@@ -500,8 +577,9 @@ public class Transaction implements SerializableObject {
     @Override
     public boolean equals(Object obj) {
 
-        if (!(obj instanceof Transaction))
+        if (!(obj instanceof Transaction)) {
             return false;
+        }
 
         Transaction tx = (Transaction) obj;
 
@@ -509,13 +587,15 @@ public class Transaction implements SerializableObject {
     }
 
     public static Transaction create(String to, BigInteger amount, BigInteger nonce, BigInteger gasPrice, BigInteger gasLimit){
-        return create(to, amount, nonce, gasPrice, gasLimit, null);
+        return create(to, amount, nonce, gasPrice, gasLimit, (byte[]) null);
     }
 
     public static Transaction create(String to, BigInteger amount, BigInteger nonce, BigInteger gasPrice, BigInteger gasLimit, String data){
-
         byte[] decodedData = data == null ? null : Hex.decode(data);
+        return create(to, amount, nonce, gasPrice, gasLimit, decodedData);
+    }
 
+    public static Transaction create(String to, BigInteger amount, BigInteger nonce, BigInteger gasPrice, BigInteger gasLimit, byte[] decodedData) {
         return new Transaction(BigIntegers.asUnsignedByteArray(nonce),
                 BigIntegers.asUnsignedByteArray(gasPrice),
                 BigIntegers.asUnsignedByteArray(gasLimit),

@@ -18,22 +18,26 @@
 
 package co.rsk.test.builders;
 
+import co.rsk.blockchain.utils.BlockGenerator;
+import co.rsk.config.RskSystemProperties;
 import co.rsk.core.bc.*;
 import co.rsk.db.RepositoryImpl;
-import co.rsk.trie.TrieStore;
+import co.rsk.peg.RepositoryBlockStore;
 import co.rsk.trie.TrieStoreImpl;
 import co.rsk.validators.BlockValidator;
+import org.ethereum.core.*;
 import co.rsk.validators.DummyBlockValidator;
 import org.ethereum.core.Block;
-import org.ethereum.core.Genesis;
-import org.ethereum.core.Repository;
 import org.ethereum.datasource.HashMapDB;
 import org.ethereum.datasource.KeyValueDataSource;
 import org.ethereum.db.*;
 import org.ethereum.listener.EthereumListener;
 import org.ethereum.manager.AdminInfo;
+import org.ethereum.vm.PrecompiledContracts;
 import org.ethereum.vm.program.invoke.ProgramInvokeFactoryImpl;
+import org.junit.Assert;
 
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.List;
 
@@ -88,6 +92,10 @@ public class BlockChainBuilder {
     }
 
     public BlockChainImpl build() {
+        return build(false);
+    }
+
+    public BlockChainImpl build(boolean withoutCleaner) {
         if (repository == null)
             repository = new RepositoryImpl(new TrieStoreImpl(new HashMapDB().setClearOnClose(false)));
 
@@ -117,7 +125,7 @@ public class BlockChainBuilder {
         if (this.adminInfo == null)
             this.adminInfo = new AdminInfo();
 
-        BlockChainImpl blockChain = new BlockChainImpl(this.repository, this.blockStore, receiptStore, null, listener, this.adminInfo, blockValidator);
+        BlockChainImpl blockChain = new BlockChainImpl(this.repository, this.blockStore, receiptStore, null, listener, this.adminInfo, blockValidator, RskSystemProperties.CONFIG);
 
         if (this.testing && this.rsk) {
             blockChain.setBlockValidator(new DummyBlockValidator());
@@ -126,8 +134,12 @@ public class BlockChainBuilder {
 
         blockChain.setRsk(this.rsk);
 
-        PendingStateImpl pendingState = new PendingStateImpl(blockChain, blockChain.getRepository(), blockChain.getBlockStore(), new ProgramInvokeFactoryImpl(), new BlockExecutorTest.SimpleEthereumListener(), 10, 100);
-
+        PendingStateImpl pendingState;
+        if (withoutCleaner) {
+            pendingState = new PendingStateImplNoCleaner(blockChain, blockChain.getRepository(), blockChain.getBlockStore(), new ProgramInvokeFactoryImpl(), new BlockExecutorTest.SimpleEthereumListener(), RskSystemProperties.CONFIG, 10, 100);
+        } else {
+            pendingState = new PendingStateImpl(blockChain, blockChain.getRepository(), blockChain.getBlockStore(), new ProgramInvokeFactoryImpl(), new BlockExecutorTest.SimpleEthereumListener(), RskSystemProperties.CONFIG, 10, 100);
+        }
         blockChain.setPendingState(pendingState);
 
         if (this.genesis != null) {
@@ -136,9 +148,14 @@ public class BlockChainBuilder {
                 this.repository.addBalance(key.getData(), this.genesis.getPremine().get(key).getAccountState().getBalance());
             }
 
+            Repository track = this.repository.startTracking();
+            new RepositoryBlockStore(track, PrecompiledContracts.BRIDGE_ADDR);
+            track.commit();
+
             this.genesis.setStateRoot(this.repository.getRoot());
             this.genesis.flushRLP();
             blockChain.setBestBlock(this.genesis);
+
             blockChain.setTotalDifficulty(this.genesis.getCumulativeDifficulty());
         }
 
@@ -152,5 +169,84 @@ public class BlockChainBuilder {
         }
 
         return blockChain;
+    }
+
+    public static Blockchain ofSizeWithNoPendingStateCleaner(int size) {
+        return ofSize(size, false, true);
+    }
+
+    public static Blockchain ofSize(int size) {
+        return ofSize(size, false, false);
+    }
+
+    public static Blockchain ofSize(int size, boolean mining) {
+        return ofSize(size, mining, null, null, false);
+    }
+
+    public static Blockchain ofSize(int size, boolean mining, boolean withoutCleaner) {
+        return ofSize(size, mining, null, null, withoutCleaner);
+    }
+
+    public static Blockchain ofSize(int size, boolean mining, List<Account> accounts, List<BigInteger> balances) {
+        return ofSize(size, mining, accounts, balances, false);
+    }
+
+    public static Blockchain ofSize(int size, boolean mining, List<Account> accounts, List<BigInteger> balances, boolean withoutCleaner) {
+        BlockChainBuilder builder = new BlockChainBuilder();
+        BlockChainImpl blockChain = builder.build(withoutCleaner);
+
+        Block genesis = BlockGenerator.getInstance().getGenesisBlock();
+
+        if (accounts != null)
+            for (int k = 0; k < accounts.size(); k++) {
+                Account account = accounts.get(k);
+                BigInteger balance = balances.get(k);
+                blockChain.getRepository().createAccount(account.getAddress());
+                blockChain.getRepository().addBalance(account.getAddress(), balance);
+            }
+
+        genesis.setStateRoot(blockChain.getRepository().getRoot());
+        genesis.flushRLP();
+
+        Assert.assertEquals(ImportResult.IMPORTED_BEST, blockChain.tryToConnect(genesis));
+
+        if (size > 0) {
+            List<Block> blocks = mining ? BlockGenerator.getInstance().getMinedBlockChain(genesis, size) : BlockGenerator.getInstance().getBlockChain(genesis, size);
+
+            for (Block block: blocks)
+                Assert.assertEquals(ImportResult.IMPORTED_BEST, blockChain.tryToConnect(block));
+        }
+
+        return blockChain;
+    }
+
+    public static Blockchain copy(Blockchain original) {
+        BlockChainBuilder builder = new BlockChainBuilder();
+        BlockChainImpl blockChain = builder.build();
+
+        long height = original.getStatus().getBestBlockNumber();
+
+        for (long k = 0; k <= height; k++)
+            blockChain.tryToConnect(original.getBlockByNumber(k));
+
+        return blockChain;
+    }
+
+    public static Blockchain copyAndExtend(Blockchain original, int size) {
+        return copyAndExtend(original, size, false);
+    }
+
+    public static Blockchain copyAndExtend(Blockchain original, int size, boolean mining) {
+        Blockchain blockchain = copy(original);
+        extend(blockchain, size, false, mining);
+        return blockchain;
+    }
+
+    public static void extend(Blockchain blockchain, int size, boolean withUncles, boolean mining) {
+        Block initial = blockchain.getBestBlock();
+        List<Block> blocks = BlockGenerator.getInstance().getBlockChain(initial, size, 0, withUncles, mining, null);
+
+        for (Block block: blocks)
+            blockchain.tryToConnect(block);
     }
 }

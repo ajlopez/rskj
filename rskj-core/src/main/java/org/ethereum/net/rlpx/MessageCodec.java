@@ -36,11 +36,7 @@ import org.ethereum.util.LRUMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongycastle.util.encoders.Hex;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Scope;
-import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -51,8 +47,6 @@ import static org.ethereum.net.rlpx.FrameCodec.Frame;
 /**
  * The Netty codec which encodes/decodes RPLx frames to subprotocol Messages
  */
-@Component
-@Scope("prototype")
 public class MessageCodec extends MessageToMessageCodec<Frame, Message> {
 
     private static final Logger loggerWire = LoggerFactory.getLogger("wire");
@@ -69,11 +63,7 @@ public class MessageCodec extends MessageToMessageCodec<Frame, Message> {
     private MessageFactory ethMessageFactory;
     private EthVersion ethVersion;
 
-    @Autowired
-    EthereumListener ethereumListener;
-
-    @Autowired
-    SystemProperties config;
+    private final EthereumListener ethereumListener;
 
     private boolean supportChunkedFrames = true;
 
@@ -81,9 +71,9 @@ public class MessageCodec extends MessageToMessageCodec<Frame, Message> {
     // LRU avoids OOM on invalid peers
     AtomicInteger contextIdCounter = new AtomicInteger(1);
 
-    @PostConstruct
-    private void init() {
-        setMaxFramePayloadSize(config.rlpxMaxFrameSize());
+    public MessageCodec(EthereumListener ethereumListener, SystemProperties config) {
+        this.ethereumListener = ethereumListener;
+        this.maxFramePayloadSize = config.rlpxMaxFrameSize();
     }
 
     @Override
@@ -116,8 +106,9 @@ public class MessageCodec extends MessageToMessageCodec<Frame, Message> {
             frameParts.getLeft().add(frame);
             int curSize = frameParts.getRight().addAndGet(frame.size);
 
-            if (loggerWire.isDebugEnabled())
+            if (loggerWire.isDebugEnabled()) {
                 loggerWire.debug("Recv: Chunked (" + curSize + " of " + frameParts.getLeft().get(0).totalFrameSize + ") [size: " + frame.getSize() + "]");
+            }
 
             if (curSize > frameParts.getLeft().get(0).totalFrameSize) {
                 loggerNet.warn("The total frame chunks size (" + curSize + ") is greater than expected (" + frameParts.getLeft().get(0).totalFrameSize + "). Discarding the frame.");
@@ -144,13 +135,15 @@ public class MessageCodec extends MessageToMessageCodec<Frame, Message> {
             pos += ByteStreams.read(frame.getStream(), payload, pos, frame.getSize());
         }
 
-        if (loggerWire.isDebugEnabled())
+        if (loggerWire.isDebugEnabled()) {
             loggerWire.debug("Recv: Encoded: {} [{}]", frameType, Hex.toHexString(payload));
+        }
 
         Message msg = createMessage((byte) frameType, payload);
 
-        if (loggerNet.isInfoEnabled())
+        if (loggerNet.isInfoEnabled()) {
             loggerNet.info("From: \t{} \tRecv: \t{}", channel, msg.toString());
+        }
 
         ethereumListener.onRecvMessage(channel, msg);
 
@@ -163,13 +156,15 @@ public class MessageCodec extends MessageToMessageCodec<Frame, Message> {
         String output = String.format("To: \t%s \tSend: \t%s", ctx.channel().remoteAddress(), msg);
         ethereumListener.trace(output);
 
-        if (loggerNet.isInfoEnabled())
+        if (loggerNet.isInfoEnabled()) {
             loggerNet.info("To: \t{} \tSend: \t{}", channel, msg);
+        }
 
         byte[] encoded = msg.getEncoded();
 
-        if (loggerWire.isDebugEnabled())
+        if (loggerWire.isDebugEnabled()) {
             loggerWire.debug("Send: Encoded: {} [{}]", getCode(msg.getCommand()), Hex.toHexString(encoded));
+        }
 
         List<Frame> frames = splitMessageToFrames(msg);
 

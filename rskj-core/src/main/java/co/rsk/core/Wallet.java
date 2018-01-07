@@ -24,9 +24,9 @@ import co.rsk.crypto.KeyCrypterAes;
 import org.ethereum.core.Account;
 import org.ethereum.crypto.ECKey;
 import org.ethereum.crypto.SHA3Helper;
-import org.ethereum.datasource.HashMapDB;
 import org.ethereum.datasource.KeyValueDataSource;
 import org.ethereum.db.ByteArrayWrapper;
+import org.ethereum.rpc.TypeConverter;
 import org.spongycastle.crypto.params.KeyParameter;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -34,21 +34,18 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-/**
- * Created by ajlopez on 15/09/2016.
- */
 public class Wallet {
     @GuardedBy("accessLock")
-    private KeyValueDataSource keyDS = new HashMapDB();
+    private final KeyValueDataSource keyDS;
 
     @GuardedBy("accessLock")
-    private Map<ByteArrayWrapper, byte[]> accounts = new HashMap<>();
+    private final Map<ByteArrayWrapper, byte[]> accounts = new HashMap<>();
 
     private final Object accessLock = new Object();
-    private Map<ByteArrayWrapper, Long> unlocksTimeouts = new HashMap<>();
+    private final Map<ByteArrayWrapper, Long> unlocksTimeouts = new HashMap<>();
 
-    public void setStore(KeyValueDataSource ds) {
-        this.keyDS = ds;
+    public Wallet(KeyValueDataSource keyDS) {
+        this.keyDS = keyDS;
     }
 
     public List<byte[]> getAccountAddresses() {
@@ -56,16 +53,24 @@ public class Wallet {
         Set<ByteArrayWrapper> keys = new HashSet<>();
 
         synchronized(accessLock) {
-            for (byte[] address: keyDS.keys())
+            for (byte[] address: keyDS.keys()) {
                 keys.add(new ByteArrayWrapper(address));
+            }
 
             keys.addAll(accounts.keySet());
 
-            for (ByteArrayWrapper address: keys)
+            for (ByteArrayWrapper address: keys) {
                 addresses.add(address.getData());
+            }
         }
 
         return addresses;
+    }
+
+    public String[] getAccountAddressesAsHex() {
+        return getAccountAddresses().stream()
+                .map(TypeConverter::toJsonHex)
+                .toArray(String[]::new);
     }
 
     public byte[] addAccount() {
@@ -80,12 +85,18 @@ public class Wallet {
         return account.getAddress();
     }
 
+    public byte[] addAccount(Account account) {
+        saveAccount(account);
+        return account.getAddress();
+    }
+
     public Account getAccount(byte[] address) {
         ByteArrayWrapper key = new ByteArrayWrapper(address);
 
         synchronized (accessLock) {
-            if (!accounts.containsKey(key))
+            if (!accounts.containsKey(key)) {
                 return null;
+            }
 
             if (unlocksTimeouts.containsKey(key)) {
                 long ending = unlocksTimeouts.get(key);
@@ -104,8 +115,9 @@ public class Wallet {
         synchronized (accessLock) {
             byte[] encrypted = keyDS.get(address);
 
-            if (encrypted == null)
+            if (encrypted == null) {
                 return null;
+            }
 
             return new Account(ECKey.fromPrivate(decryptAES(encrypted, passphrase.getBytes(StandardCharsets.UTF_8))));
         }
@@ -130,8 +142,9 @@ public class Wallet {
         synchronized (accessLock) {
             byte[] encrypted = keyDS.get(address);
 
-            if (encrypted == null)
+            if (encrypted == null) {
                 return false;
+            }
 
             account = new Account(ECKey.fromPrivate(decryptAES(encrypted, passphrase.getBytes(StandardCharsets.UTF_8))));
         }
@@ -145,8 +158,9 @@ public class Wallet {
         synchronized (accessLock) {
             ByteArrayWrapper key = new ByteArrayWrapper(address);
 
-            if (!accounts.containsKey(key))
+            if (!accounts.containsKey(key)) {
                 return false;
+            }
 
             accounts.remove(key);
 
@@ -155,31 +169,20 @@ public class Wallet {
     }
 
     public byte[] addAccountWithSeed(String seed) {
-        Account account = createAccount(ECKey.fromPrivate(SHA3Helper.sha3(seed.getBytes(StandardCharsets.UTF_8))));
-
-        saveAccount(account);
-
-        return account.getAddress();
+        return addAccountWithPrivateKey(SHA3Helper.sha3(seed.getBytes(StandardCharsets.UTF_8)));
     }
 
     public byte[] addAccountWithPrivateKey(byte[] privateKeyBytes) {
-        Account account = createAccount(ECKey.fromPrivate(privateKeyBytes));
-
-        saveAccount(account);
-
-        return account.getAddress();
+        Account account = new Account(ECKey.fromPrivate(privateKeyBytes));
+        return addAccount(account);
     }
 
     public byte[] addAccountWithPrivateKey(byte[] privateKeyBytes, String passphrase) {
-        Account account = createAccount(ECKey.fromPrivate(privateKeyBytes));
+        Account account = new Account(ECKey.fromPrivate(privateKeyBytes));
 
         saveAccount(account, passphrase);
 
         return account.getAddress();
-    }
-
-    private Account createAccount(ECKey key) {
-        return new Account(key);
     }
 
     private void saveAccount(Account account) {

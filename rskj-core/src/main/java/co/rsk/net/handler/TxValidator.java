@@ -20,11 +20,14 @@ package co.rsk.net.handler;
 
 import co.rsk.net.handler.txvalidator.*;
 import org.ethereum.core.AccountState;
+import org.ethereum.core.Blockchain;
 import org.ethereum.core.Repository;
 import org.ethereum.core.Transaction;
-import org.ethereum.manager.WorldManager;
 import org.ethereum.rpc.TypeConverter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.spongycastle.util.BigIntegers;
+import org.spongycastle.util.encoders.Hex;
 
 import java.math.BigInteger;
 import java.util.LinkedList;
@@ -40,6 +43,7 @@ class TxValidator {
 
     private List<TxValidatorStep> validatorSteps = new LinkedList<>();
     private List<TxFilter> txFilters = new LinkedList<>();
+    private static final Logger logger = LoggerFactory.getLogger("txvalidator");
 
     public TxValidator() {
         validatorSteps.add(new TxValidatorAccountStateValidator());
@@ -55,8 +59,10 @@ class TxValidator {
     /**
      * Where the magic occurs, will filter out invalid txs, but still remember some of them
      */
-    List<Transaction> filterTxs(List<Transaction> txs, Map<String, TxTimestamp> knownTxs,
-                                Repository repository, WorldManager worldManager,
+    List<Transaction> filterTxs(Repository repository,
+                                Blockchain blockchain,
+                                List<Transaction> txs,
+                                Map<String, TxTimestamp> knownTxs,
                                 Map<String, TxsPerAccount> txsPerAccounts) {
         //FIXME(mmarquez): this method is quite coupled with TxHandlerImpl
         // but it should be fixed when NodeMessageHandler stops managing the wire txs
@@ -73,21 +79,25 @@ class TxValidator {
             knownTxs.put(hash, new TxTimestamp(tx, System.currentTimeMillis()));
 
             AccountState state = repository.getAccountState(tx.getSender());
+
             if (state == null) {
                 state = new AccountState(BigInteger.ZERO, BigInteger.ZERO);
             }
-            BigInteger blockGasLimit = BigIntegers.fromUnsignedByteArray(worldManager.getBlockchain().getBestBlock().getGasLimit());
-            BigInteger minimumGasPrice = BigIntegers.fromUnsignedByteArray(worldManager.getBlockchain().getBestBlock().getMinimumGasPrice());
-            long bestBlockNumber = worldManager.getBlockchain().getBestBlock().getNumber();
+            BigInteger blockGasLimit = BigIntegers.fromUnsignedByteArray(blockchain.getBestBlock().getGasLimit());
+            BigInteger minimumGasPrice = BigIntegers.fromUnsignedByteArray(blockchain.getBestBlock().getMinimumGasPrice());
+            long bestBlockNumber = blockchain.getBestBlock().getNumber();
+            long basicTxCost = tx.transactionCost(blockchain.getBestBlock());
 
             boolean valid = true;
 
             for (TxValidatorStep step : validatorSteps) {
-                if (!step.validate(tx, state, blockGasLimit, minimumGasPrice, bestBlockNumber)) {
+                if (!step.validate(tx, state, blockGasLimit, minimumGasPrice, bestBlockNumber, basicTxCost == 0)) {
+                    logger.info("Tx validation failed: validator {} tx {}", step.getClass().getName(), Hex.toHexString(tx.getHash()));
                     valid = false;
                     break;
                 }
             }
+
             if (!valid) {
                 continue;
             }
@@ -105,7 +115,7 @@ class TxValidator {
             txsPerAccount.getTransactions().add(tx);
 
             for (TxFilter filter : txFilters) {
-                txsPerAccount.setTransactions(filter.filter(state, txsPerAccount));
+                txsPerAccount.setTransactions(filter.filter(state, txsPerAccount, blockchain.getBestBlock()));
             }
 
             acceptedTxs.addAll(txsPerAccount.readyToBeSent(state.getNonce()));

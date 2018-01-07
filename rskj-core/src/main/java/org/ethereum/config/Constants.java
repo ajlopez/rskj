@@ -24,6 +24,7 @@ import co.rsk.config.BridgeTestNetConstants;
 import org.spongycastle.pqc.math.linearalgebra.ByteUtils;
 import org.spongycastle.util.encoders.Hex;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 
 /**
@@ -32,12 +33,29 @@ import java.math.BigInteger;
  * Created by Anton Nashatyrev on 25.02.2016.
  */
 public class Constants {
+    private static final int MAX_CONTRACT_SIZE = 0x6000;
+    // we defined it be large enough for to allow large tx and also to have space still to operate on vm
+    private static final BigInteger TRANSACTION_GAS_CAP = BigDecimal.valueOf(Math.pow(2,  60)).toBigInteger();
+    public static final int DURATION_LIMIT = 8;
+    private static final int MAX_ADDRESS_BYTE_LENGTH = 20;
     private int maximumExtraDataSize = 32;
     private int minGasLimit = 3000000;
     private int gasLimitBoundDivisor = 1024;
-    private int targetGasLimit = 5000000;
 
-    private BigInteger minimumDifficulty = BigInteger.valueOf(131072);
+    // Private mining is allowed if difficulty is lower or equal than this value
+    private BigInteger fallbackMiningDifficulty = BigInteger.valueOf((long) 14E15); // 14 peta evert 14 secs = 1 peta/s.
+
+    private static long blockPerDay = 24*3600 / 14;
+
+    private long endOfFallbackMiningBlockNumber = blockPerDay*30*6; // Approximately 6 months of private mining fallback, then you're free my child. Fly, fly away.
+
+    // 0.5 peta/s. This means that on reset difficulty will allow private mining.
+    private BigInteger minimumDifficulty = BigInteger.valueOf((long) 14E15 / 2 ); // 0.5 peta/s.
+
+    // Use this to test CPU-mining by Java client:
+    // private BigInteger minimumDifficulty = BigInteger.valueOf((long) 14E4 / 2 ); // 0.005 mega/s.
+
+
     private BigInteger difficultyBoundDivisor = BigInteger.valueOf(2048);
     private int expDifficultyPeriod = 100000;
 
@@ -46,7 +64,7 @@ public class Constants {
 
     private int bestNumberDiffLimit = 100;
 
-    private int newBlockMaxMinInTheFuture = 540;
+    private int newBlockMaxSecondsInTheFuture = 540;
 
     private static final BigInteger SECP256K1N = new BigInteger("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141", 16);
 
@@ -54,14 +72,37 @@ public class Constants {
 
     private static final byte CHAIN_ID = 30;
 
-    public int getDurationLimit() {
-        return 8;
+    public byte[] fallbackMiningPubKey0 = Hex.decode("041e2b148c024770e19c4f31db2233cac791583df95b4d14a5e9fd4b38dc8254b3048f937f169446b19d2eca40db1dd93fab34c0cd8a310afd6e6211f9a89e4bca");
+
+    public byte[] fallbackMiningPubKey1 = Hex.decode("04b55031870df5de88bdb84f65bd1c6f8331c633e759caa5ac7cad3fa4f8a36791e995804bba1558ddcf330a67ff5bfa253fa1d8789735f97a97e849686527976e");
+
+    public static BigInteger getTransactionGasCap() {
+        return TRANSACTION_GAS_CAP;
     }
 
-    public BigInteger
+    public static int getMaxContractSize() {
+        return MAX_CONTRACT_SIZE;
+    }
 
-    getInitialNonce() {
+    public static int getMaxAddressByteLength() {
+        return MAX_ADDRESS_BYTE_LENGTH;
+    }
+
+    // Average Time between blocks
+    public int getDurationLimit() {
+        return DURATION_LIMIT;
+    }
+
+    public BigInteger getInitialNonce() {
         return BigInteger.ZERO;
+    }
+
+    public byte[] getFallbackMiningPubKey0() {
+            return fallbackMiningPubKey0;
+    }
+
+    public byte[] getFallbackMiningPubKey1() {
+        return fallbackMiningPubKey1;
     }
 
     public int getMaximumExtraDataSize() {
@@ -79,6 +120,10 @@ public class Constants {
     public BigInteger getMinimumDifficulty() {
         return minimumDifficulty;
     }
+
+    public BigInteger getFallbackMiningDifficulty() { return fallbackMiningDifficulty; }
+
+    public long getEndOfFallbackMiningBlockNumber() { return endOfFallbackMiningBlockNumber; }
 
     public BigInteger getDifficultyBoundDivisor() {
         return difficultyBoundDivisor;
@@ -106,12 +151,8 @@ public class Constants {
 
     public BridgeConstants getBridgeConstants() { return BridgeTestNetConstants.getInstance(); }
 
-    public long getTargetGasLimit() {
-        return targetGasLimit;
-    }
-
-    public int getNewBlockMaxMinInTheFuture() {
-        return this.newBlockMaxMinInTheFuture;
+    public int getNewBlockMaxSecondsInTheFuture() {
+        return this.newBlockMaxSecondsInTheFuture;
     }
 
     public byte[] getBurnAddress() { return ByteUtils.clone(Constants.BURN_ADDRESS); }

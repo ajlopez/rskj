@@ -20,6 +20,8 @@ package co.rsk.mine;
 
 import co.rsk.config.RskSystemProperties;
 import org.ethereum.config.Constants;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.math.BigInteger;
 
@@ -27,16 +29,22 @@ import java.math.BigInteger;
  * Created by Ruben on 23/05/2016.
  * This class calculates next block gas limit
  */
+@Component
 public class GasLimitCalculator {
 
-    public GasLimitCalculator() {}
+    private final RskSystemProperties config;
+
+    @Autowired
+    public GasLimitCalculator(RskSystemProperties config) {
+        this.config = config;
+    }
 
     // At the end of this algorithm it will increase the gas limit if and only if the previous block gas used
     // is above 2/3 of the block gas limit, and decrease otherwise, by small amounts
     // The idea is to increase the gas limit when there are more transactions on the network while reduce it when
     // there are no or almost no transaction on it
     public BigInteger calculateBlockGasLimit(BigInteger parentGasLimit, BigInteger parentGasUsed, BigInteger minGasLimit, BigInteger targetGasLimit, boolean forceTarget) {
-        Constants constants = RskSystemProperties.CONFIG.getBlockchainConfig().getCommonConstants();
+        Constants constants = config.getBlockchainConfig().getCommonConstants();
 
         BigInteger newGasLimit = parentGasLimit;
 
@@ -79,17 +87,22 @@ public class GasLimitCalculator {
         newGasLimit = newGasLimit.add(contrib);
 
         // Gas limit can never be lesser than a certain threshold
-       if (newGasLimit.compareTo(minGasLimit) < 0)
+       if (newGasLimit.compareTo(minGasLimit) < 0) {
            newGasLimit = minGasLimit;
+       }
 
-       if (newGasLimit.compareTo(targetGasLimit) > 0)
+       if (newGasLimit.compareTo(targetGasLimit) > 0) {
            newGasLimit = targetGasLimit;
+       }
 
        // I've never done enough calculations, but neither of these two should ever happen
-       if (newGasLimit.compareTo(parentGasLimit.subtract(deltaMax)) < 0)
+       if (newGasLimit.compareTo(parentGasLimit.subtract(deltaMax)) < 0) {
            newGasLimit = parentGasLimit;
-       if (newGasLimit.compareTo(parentGasLimit.add(deltaMax)) > 0)
+       }
+
+       if (newGasLimit.compareTo(parentGasLimit.add(deltaMax)) > 0) {
            newGasLimit = parentGasLimit;
+       }
 
         return newGasLimit;
     }

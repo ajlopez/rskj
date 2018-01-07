@@ -66,6 +66,11 @@ public class TrieStoreImpl implements TrieStore {
     public void save(Trie trie) {
         this.saveCount++;
         this.store.put(trie.getHash(), trie.toMessage());
+
+        if (trie.hasLongValue()) {
+            this.saveCount++;
+            this.store.put(trie.getValueHash(), trie.getValue());
+        }
     }
 
     @Override
@@ -87,6 +92,10 @@ public class TrieStoreImpl implements TrieStore {
         return TrieImpl.fromMessage(message, this);
     }
 
+    public byte[] retrieveValue(byte[] hash) {
+        return this.store.get(hash);
+    }
+
     @Override
     public int getRetrieveCount() { return this.retrieveCount; }
 
@@ -101,8 +110,9 @@ public class TrieStoreImpl implements TrieStore {
         for (byte[] key : this.store.keys()) {
             byte[] value = this.store.get(key);
 
-            if (value == null || value.length == 0)
+            if (value == null || value.length == 0) {
                 continue;
+            }
 
             keys.add(key);
             values.add(value);
@@ -135,8 +145,9 @@ public class TrieStoreImpl implements TrieStore {
     public void copyFrom(TrieStoreImpl originalTrieStore) {
         KeyValueDataSource ds = originalTrieStore.store;
 
-        for (byte[] key : ds.keys())
+        for (byte[] key : ds.keys()) {
             this.store.put(key, ds.get(key));
+        }
     }
 
     public static TrieStoreImpl deserialize(byte[] bytes) {
@@ -155,13 +166,15 @@ public class TrieStoreImpl implements TrieStore {
             for (int k = 0; k < nkeys; k++) {
                 int lkey = dstream.readInt();
                 byte[] key = new byte[lkey];
-                if (dstream.read(key) != lkey)
+                if (dstream.read(key) != lkey) {
                     throw new EOFException();
+                }
 
                 int lvalue = dstream.readInt();
                 byte[] value = new byte[lvalue];
-                if (dstream.read(value) != lvalue)
+                if (dstream.read(value) != lvalue) {
                     throw new EOFException();
+                }
 
                 ds.put(key, value);
             }

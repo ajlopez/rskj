@@ -21,7 +21,6 @@ package org.ethereum.datasource;
 
 import org.slf4j.Logger;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -32,16 +31,8 @@ public class DataSourcePool {
     private static final Logger logger = getLogger("db");
     private static ConcurrentMap<String, DataSourceEx> pool = new ConcurrentHashMap<>();
 
-    public static KeyValueDataSource hashMapDBByName(String name){
-        return (KeyValueDataSource) getDataSourceFromPool(name, new HashMapDB());
-    }
-
     public static KeyValueDataSource levelDbByName(String name) {
-        return (KeyValueDataSource) getDataSourceFromPool(name, new LevelDbDataSource());
-    }
-
-    private static DataSource getDataSourceFromPool(String name, @Nonnull DataSource dataSource) {
-        dataSource.setName(name);
+        DataSource dataSource = new LevelDbDataSource(name);
         DataSourceEx dataSourceEx = new DataSourceEx(dataSource);
         DataSourceEx result = pool.putIfAbsent(name, dataSourceEx);
         if (result == null) {
@@ -58,24 +49,27 @@ public class DataSourcePool {
             }
         }
 
-        return result.getDataSource();
+        return (KeyValueDataSource) result.getDataSource();
     }
 
     public static void closeDataSource(String name){
         DataSourceEx dataSourceEx = pool.get(name);
 
-        if (dataSourceEx == null)
+        if (dataSourceEx == null) {
             return;
+        }
 
         DataSource dataSource = dataSourceEx.getDataSource();
 
-        if (dataSource instanceof HashMapDB)
+        if (dataSource instanceof HashMapDB) {
             return;
+        }
 
         dataSourceEx.release();
 
-        if (dataSourceEx.getUseCounter() > 0)
+        if (dataSourceEx.getUseCounter() > 0) {
             return;
+        }
 
         pool.remove(name);
 
@@ -99,7 +93,7 @@ public class DataSourcePool {
             return this.dataSource;
         }
 
-        public int getUseCounter() {
+        public synchronized int getUseCounter() {
             return this.counter;
         }
 

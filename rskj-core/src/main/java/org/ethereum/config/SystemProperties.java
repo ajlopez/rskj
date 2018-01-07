@@ -20,11 +20,9 @@
 package org.ethereum.config;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigObject;
-import com.typesafe.config.ConfigRenderOptions;
+import com.typesafe.config.*;
 import org.ethereum.config.blockchain.DevNetConfig;
+import org.ethereum.config.blockchain.FallbackMainNetConfig;
 import org.ethereum.config.blockchain.RegTestConfig;
 import org.ethereum.config.net.TestNetConfig;
 import org.ethereum.config.net.*;
@@ -43,11 +41,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
-import java.net.Socket;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.ethereum.crypto.SHA3Helper.sha3;
 
@@ -67,7 +65,7 @@ import static org.ethereum.crypto.SHA3Helper.sha3;
  * @since 22.05.2014
  */
 public abstract class SystemProperties {
-    public static final String DEFAULT_BIND_IP = "0.0.0.0";
+    public static final String DEFAULT_BIND_IP = "::";
     private static Logger logger = LoggerFactory.getLogger("general");
 
     public static final String PROPERTY_DB_DIR = "database.dir";
@@ -92,12 +90,13 @@ public abstract class SystemProperties {
      */
     @Target(ElementType.METHOD)
     @Retention(RetentionPolicy.RUNTIME)
-    private @interface ValidateMe {};
+    private @interface ValidateMe {}
 
-    protected Config config;
+    protected Config configFromFiles;
 
     // mutable options for tests
     private String databaseDir = null;
+    private String fallbackMiningKeysDir = null;
     private Boolean databaseReset = null;
     private String projectVersion = null;
     private String projectVersionModifier = null;
@@ -114,10 +113,10 @@ public abstract class SystemProperties {
     
     protected SystemProperties() {
         try {
-            config = getConfigFromFiles();
+            configFromFiles = getConfigFromFiles();
             validateConfig();
 
-            logger.debug("Config trace: " + config.root().render(ConfigRenderOptions.defaults().
+            logger.debug("Config trace: " + configFromFiles.root().render(ConfigRenderOptions.defaults().
                     setComments(false).setJson(false)));
 
             Properties props = new Properties();
@@ -150,33 +149,23 @@ public abstract class SystemProperties {
         Config javaSystemProperties = ConfigFactory.load("no-such-resource-only-system-props");
         Config referenceConfig = ConfigFactory.parseResources("rskj.conf");
         logger.info("Config ( {} ): default properties from resource 'rskj.conf'", referenceConfig.entrySet().isEmpty() ? NO : YES);
-        String res = System.getProperty("rskj.conf.res");
-        Config cmdLineConfigRes = res != null ? ConfigFactory.parseResources(res) : ConfigFactory.empty();
-        logger.info("Config ( {} ): user properties from -Drskj.conf.res resource '{}'", cmdLineConfigRes.entrySet().isEmpty() ? NO : YES, res);
-        Config userConfig = ConfigFactory.parseResources("user.conf");
-        logger.info("Config ( {} ): user properties from resource 'user.conf'", userConfig.entrySet().isEmpty() ? NO : YES);
-        File userDirFile = new File(System.getProperty("user.dir"), "/config/rskj.conf");
-        Config userDirConfig = ConfigFactory.parseFile(userDirFile);
-        logger.info("Config ( {} ): user properties from file '{}'", userDirConfig.entrySet().isEmpty() ? NO : YES, userDirFile);
+        File installerFile = new File("/etc/rsk/node.conf");
+        Config installerConfig = installerFile.exists() ? ConfigFactory.parseFile(installerFile) : ConfigFactory.empty();
+        logger.info("Config ( {} ): default properties from installer '/etc/rsk/node.conf'", installerConfig.entrySet().isEmpty() ? NO : YES);
         Config testConfig = ConfigFactory.parseResources("test-rskj.conf");
         logger.info("Config ( {} ): test properties from resource 'test-rskj.conf'", testConfig.entrySet().isEmpty() ? NO : YES);
-        Config testUserConfig = ConfigFactory.parseResources("test-user.conf");
-        logger.info("Config ( {} ): test properties from resource 'test-user.conf'", testUserConfig.entrySet().isEmpty() ? NO : YES);
         String file = System.getProperty("rsk.conf.file");
         Config cmdLineConfigFile = file != null ? ConfigFactory.parseFile(new File(file)) : ConfigFactory.empty();
         logger.info("Config ( {} ): user properties from -Drsk.conf.file file '{}'", cmdLineConfigFile.entrySet().isEmpty() ? NO : YES, file);
         return javaSystemProperties
                 .withFallback(cmdLineConfigFile)
-                .withFallback(testUserConfig)
                 .withFallback(testConfig)
-                .withFallback(userConfig)
-                .withFallback(userDirConfig)
-                .withFallback(cmdLineConfigRes)
-                .withFallback(referenceConfig);
+                .withFallback(referenceConfig)
+                .withFallback(installerConfig);
     }
 
     public Config getConfig() {
-        return config;
+        return configFromFiles;
     }
 
     /**
@@ -187,7 +176,7 @@ public abstract class SystemProperties {
      * @param overrideOptions - atop config
      */
     public void overrideParams(Config overrideOptions) {
-        config = overrideOptions.withFallback(config);
+        configFromFiles = overrideOptions.withFallback(configFromFiles);
         validateConfig();
     }
 
@@ -235,29 +224,32 @@ public abstract class SystemProperties {
     }
 
     public <T> T getProperty(String propName, T defaultValue) {
-        if (!config.hasPath(propName)) {
+        if (!configFromFiles.hasPath(propName)) {
             return defaultValue;
         }
 
-        String string = config.getString(propName);
+        String string = configFromFiles.getString(propName);
         if (string.trim().isEmpty()) {
             return defaultValue;
         }
         
-        return (T) config.getAnyRef(propName);
+        return (T) configFromFiles.getAnyRef(propName);
     }
 
     @ValidateMe
     public BlockchainNetConfig getBlockchainConfig() {
         if (blockchainConfig == null) {
             String netName = netName();
-            if (netName != null && config.hasPath("blockchain.config.class")) {
+            if (netName != null && configFromFiles.hasPath("blockchain.config.class")) {
                 throw new RuntimeException("Only one of two options should be defined: 'blockchain.config.name' and 'blockchain.config.class'");
             }
             if (netName != null) {
                 switch(netName) {
                     case "main":
                         blockchainConfig = new MainNetConfig();
+                        break;
+                    case "fallbackmain":
+                        blockchainConfig = new FallbackMainNetConfig();
                         break;
                     case "testnet":
                         blockchainConfig = new TestNetConfig();
@@ -269,10 +261,10 @@ public abstract class SystemProperties {
                         blockchainConfig = new RegTestConfig();
                         break;
                     default:
-                        throw new RuntimeException("Unknown value for 'blockchain.config.name': '" + config.getString("blockchain.config.name") + "'");
+                        throw new RuntimeException("Unknown value for 'blockchain.config.name': '" + configFromFiles.getString("blockchain.config.name") + "'");
                 }
             } else {
-                String className = config.getString("blockchain.config.class");
+                String className = configFromFiles.getString("blockchain.config.class");
                 try {
                     Class<? extends BlockchainNetConfig> aClass = (Class<? extends BlockchainNetConfig>) Class.forName(className);
                     blockchainConfig = aClass.newInstance();
@@ -295,7 +287,7 @@ public abstract class SystemProperties {
 
     @ValidateMe
     public boolean peerDiscovery() {
-        return discoveryEnabled == null ? config.getBoolean("peer.discovery.enabled") : discoveryEnabled;
+        return discoveryEnabled == null ? configFromFiles.getBoolean("peer.discovery.enabled") : discoveryEnabled;
     }
 
     public void setDiscoveryEnabled(Boolean discoveryEnabled) {
@@ -304,27 +296,27 @@ public abstract class SystemProperties {
 
     @ValidateMe
     public int peerConnectionTimeout() {
-        return config.getInt("peer.connection.timeout") * 1000;
+        return configFromFiles.getInt("peer.connection.timeout") * 1000;
     }
 
     @ValidateMe
     public int defaultP2PVersion() {
-        return config.hasPath("peer.p2p.version") ? config.getInt("peer.p2p.version") : P2pHandler.VERSION;
+        return configFromFiles.hasPath("peer.p2p.version") ? configFromFiles.getInt("peer.p2p.version") : P2pHandler.VERSION;
     }
 
     @ValidateMe
     public int rlpxMaxFrameSize() {
-        return config.hasPath("peer.p2p.framing.maxSize") ? config.getInt("peer.p2p.framing.maxSize") : MessageCodec.NO_FRAMING;
+        return configFromFiles.hasPath("peer.p2p.framing.maxSize") ? configFromFiles.getInt("peer.p2p.framing.maxSize") : MessageCodec.NO_FRAMING;
     }
 
     @ValidateMe
     public List<String> peerDiscoveryIPList() {
-        return config.hasPath("peer.discovery.ip.list") ? config.getStringList("peer.discovery.ip.list") : new ArrayList<>();
+        return configFromFiles.hasPath("peer.discovery.ip.list") ? configFromFiles.getStringList("peer.discovery.ip.list") : new ArrayList<>();
     }
 
     @ValidateMe
     public boolean databaseReset() {
-        return databaseReset == null ? config.getBoolean("database.reset") : databaseReset;
+        return databaseReset == null ? configFromFiles.getBoolean("database.reset") : databaseReset;
     }
 
     public void setDatabaseReset(Boolean reset) {
@@ -333,46 +325,47 @@ public abstract class SystemProperties {
 
     @ValidateMe
     public List<Node> peerActive() {
-        if (!config.hasPath("peer.active")) {
-            return Collections.EMPTY_LIST;
+        if (!configFromFiles.hasPath("peer.active")) {
+            return Collections.emptyList();
         }
-        List<Node> ret = new ArrayList<>();
-        List<? extends ConfigObject> list = config.getObjectList("peer.active");
-        for (ConfigObject configObject : list) {
-            Node n;
-            if (configObject.get("url") != null) {
-                String url = configObject.toConfig().getString("url");
-                n = new Node(url.startsWith("enode://") ? url : "enode://" + url);
-            } else if (configObject.get("ip") != null) {
-                String ip = configObject.toConfig().getString("ip");
-                int port = configObject.toConfig().getInt("port");
-                byte[] nodeId;
-                if (configObject.toConfig().hasPath("nodeId")) {
-                    nodeId = Hex.decode(configObject.toConfig().getString("nodeId").trim());
-                    if (nodeId.length != 64) {
-                        throw new RuntimeException("Invalid config nodeId '" + nodeId + "' at " + configObject);
-                    }
-                } else {
-                    if (configObject.toConfig().hasPath("nodeName")) {
-                        String nodeName = configObject.toConfig().getString("nodeName").trim();
-                        // FIXME should be sha3-512 here ?
-                        nodeId = ECKey.fromPrivate(sha3(nodeName.getBytes(StandardCharsets.UTF_8))).getNodeId();
-                    } else {
-                        throw new RuntimeException("Either nodeId or nodeName should be specified: " + configObject);
-                    }
+        List<? extends ConfigObject> list = configFromFiles.getObjectList("peer.active");
+        return list.stream().map(this::parsePeer).collect(Collectors.toList());
+    }
+
+    private Node parsePeer(ConfigObject configObject) {
+        if (configObject.get("url") != null) {
+            String url = configObject.toConfig().getString("url");
+            return new Node(url.startsWith("enode://") ? url : "enode://" + url);
+        }
+
+        if (configObject.get("ip") != null) {
+            String ip = configObject.toConfig().getString("ip");
+            int port = configObject.toConfig().getInt("port");
+            if (configObject.toConfig().hasPath("nodeId")) {
+                byte[] nodeId = Hex.decode(configObject.toConfig().getString("nodeId").trim());
+                if (nodeId.length == 64) {
+                    return new Node(nodeId, ip, port);
                 }
-                n = new Node(nodeId, ip, port);
-            } else {
-                throw new RuntimeException("Unexpected element within 'peer.active' config list: " + configObject);
+
+                throw new RuntimeException("Invalid config nodeId '" + nodeId + "' at " + configObject);
             }
-            ret.add(n);
+
+            if (configObject.toConfig().hasPath("nodeName")) {
+                String nodeName = configObject.toConfig().getString("nodeName").trim();
+                // FIXME should be sha3-512 here ?
+                byte[] nodeId = ECKey.fromPrivate(sha3(nodeName.getBytes(StandardCharsets.UTF_8))).getNodeId();
+                return new Node(nodeId, ip, port);
+            }
+
+            throw new RuntimeException("Either nodeId or nodeName should be specified: " + configObject);
         }
-        return ret;
+
+        throw new RuntimeException("Unexpected element within 'peer.active' config list: " + configObject);
     }
 
     @ValidateMe
     public NodeFilter peerTrusted() {
-        List<? extends ConfigObject> list = config.getObjectList("peer.trusted");
+        List<? extends ConfigObject> list = configFromFiles.getObjectList("peer.trusted");
         NodeFilter ret = new NodeFilter();
 
         for (ConfigObject configObject : list) {
@@ -389,30 +382,34 @@ public abstract class SystemProperties {
         return ret;
     }
 
-
-    @ValidateMe
-    public String coinbaseSecret() {
-        return config.getString("coinbase.secret");
-    }
-
     @ValidateMe
     public Integer peerChannelReadTimeout() {
-        return config.getInt("peer.channel.read.timeout");
+        return configFromFiles.getInt("peer.channel.read.timeout");
     }
 
     @ValidateMe
     public String dumpStyle() {
-        return config.getString("dump.style");
+        return configFromFiles.getString("dump.style");
     }
 
     @ValidateMe
     public int dumpBlock() {
-        return config.getInt("dump.block");
+        return configFromFiles.getInt("dump.block");
     }
 
     @ValidateMe
     public String databaseDir() {
-        return databaseDir == null ? config.getString("database.dir") : databaseDir;
+        return databaseDir == null ? configFromFiles.getString("database.dir") : databaseDir;
+    }
+
+    // can be missing
+    public String fallbackMiningKeysDir() {
+        try {
+            return fallbackMiningKeysDir == null ? configFromFiles.getString("fallbackMining.keysDir") : fallbackMiningKeysDir;
+        } catch(ConfigException.Missing e) {
+            fallbackMiningKeysDir ="";
+            return fallbackMiningKeysDir;
+        }
     }
 
     public void setDataBaseDir(String dataBaseDir) {
@@ -421,29 +418,29 @@ public abstract class SystemProperties {
 
     @ValidateMe
     public boolean dumpCleanOnRestart() {
-        return config.getBoolean("dump.clean.on.restart");
+        return configFromFiles.getBoolean("dump.clean.on.restart");
     }
 
     @ValidateMe
     public boolean playVM() {
-        return config.getBoolean("play.vm");
+        return configFromFiles.getBoolean("play.vm");
     }
 
     @ValidateMe
     public int maxHashesAsk() {
-        return config.getInt("sync.max.hashes.ask");
+        return configFromFiles.getInt("sync.max.hashes.ask");
     }
 
     @ValidateMe
     public int syncPeerCount() {
-        return config.getInt("sync.peer.count");
+        return configFromFiles.getInt("sync.peer.count");
     }
 
     public Integer syncVersion() {
-        if (!config.hasPath("sync.version")) {
+        if (!configFromFiles.hasPath("sync.version")) {
             return null;
         }
-        return config.getInt("sync.version");
+        return configFromFiles.getInt("sync.version");
     }
 
 
@@ -459,48 +456,48 @@ public abstract class SystemProperties {
 
     @ValidateMe
     public String helloPhrase() {
-        return config.getString("hello.phrase");
+        return configFromFiles.getString("hello.phrase");
     }
 
     @ValidateMe
     public String rootHashStart() {
-        return config.hasPath("root.hash.start") ? config.getString("root.hash.start") : null;
+        return configFromFiles.hasPath("root.hash.start") ? configFromFiles.getString("root.hash.start") : null;
     }
 
     @ValidateMe
     public List<String> peerCapabilities() {
-        return config.hasPath("peer.capabilities") ?  config.getStringList("peer.capabilities") : new ArrayList<>(Arrays.asList("rsk"));
+        return configFromFiles.hasPath("peer.capabilities") ?  configFromFiles.getStringList("peer.capabilities") : new ArrayList<>(Arrays.asList("rsk"));
     }
 
     @ValidateMe
     public boolean vmTrace() {
-        return config.getBoolean("vm.structured.trace");
+        return configFromFiles.getBoolean("vm.structured.trace");
     }
 
     @ValidateMe
     public boolean vmTraceCompressed() {
-        return config.getBoolean("vm.structured.compressed");
+        return configFromFiles.getBoolean("vm.structured.compressed");
     }
 
     @ValidateMe
     public int vmTraceInitStorageLimit() {
-        return config.getInt("vm.structured.initStorageLimit");
+        return configFromFiles.getInt("vm.structured.initStorageLimit");
     }
 
     @ValidateMe
     public int detailsInMemoryStorageLimit() {
-        return config.getInt("details.inmemory.storage.limit");
+        return configFromFiles.getInt("details.inmemory.storage.limit");
     }
 
     @ValidateMe
     public String vmTraceDir() {
-        return config.getString("vm.structured.dir");
+        return configFromFiles.getString("vm.structured.dir");
     }
 
     @ValidateMe
     public String privateKey() {
-        if (config.hasPath("peer.privateKey")) {
-            String key = config.getString("peer.privateKey");
+        if (configFromFiles.hasPath("peer.privateKey")) {
+            String key = configFromFiles.getString("peer.privateKey");
             if (key.length() != 64) {
                 throw new RuntimeException("The peer.privateKey needs to be Hex encoded and 32 byte length");
             }
@@ -546,86 +543,96 @@ public abstract class SystemProperties {
 
     @ValidateMe
     public int networkId() {
-        return config.getInt("peer.networkId");
+        return configFromFiles.getInt("peer.networkId");
     }
 
     @ValidateMe
     public int maxActivePeers() {
-        return config.getInt("peer.maxActivePeers");
+        return configFromFiles.getInt("peer.maxActivePeers");
     }
 
     @ValidateMe
     public boolean eip8() {
-        return config.getBoolean("peer.p2p.eip8");
+        return configFromFiles.getBoolean("peer.p2p.eip8");
     }
 
     @ValidateMe
     public int listenPort() {
-        return config.getInt("peer.listen.port");
+        return configFromFiles.getInt("peer.listen.port");
     }
 
-
-    /**
-     * This can be a blocking call with long timeout (thus no ValidateMe)
-     */
-    public String bindIp() {
-        if (!config.hasPath("peer.discovery.bind.ip") || config.getString("peer.discovery.bind.ip").trim().isEmpty()) {
-            if (bindIp == null) {
-                logger.info("Bind address wasn't set, Punching to identify it...");
-                try(Socket s = new Socket("www.google.com", 80)) {
-                    bindIp = s.getLocalAddress().getHostAddress();
-                    logger.info("UDP local bound to: {}", bindIp);
-                } catch (IOException e) {
-                    logger.warn("Can't get bind IP. Fall back to 0.0.0.0: ", e);
-                    bindIp = DEFAULT_BIND_IP;
-                }
-            }
+    public String getPeerDiscoveryBindAddress() {
+        if (bindIp != null) {
             return bindIp;
-        } else {
-            return config.getString("peer.discovery.bind.ip").trim();
         }
+
+        bindIp = DEFAULT_BIND_IP;
+        if (configFromFiles.hasPath("peer.discovery.bind.ip")) {
+            String bindIpFromConfig = configFromFiles.getString("peer.discovery.bind.ip").trim();
+            if (!bindIpFromConfig.isEmpty()) {
+                bindIp = bindIpFromConfig;
+            }
+        }
+
+        logger.info("Binding peer discovery on {}", bindIp);
+        return bindIp;
     }
 
     /**
      * This can be a blocking call with long timeout (thus no ValidateMe)
      */
-    public String externalIp() {
-        if (!config.hasPath("peer.discovery.external.ip") || config.getString("peer.discovery.external.ip").trim().isEmpty()) {
-            if (externalIp == null) {
-                logger.info("External IP wasn't set, using checkip.amazonaws.com to identify it...");
+    public synchronized String getExternalIp() {
+        if (externalIp != null) {
+            return externalIp;
+        }
+
+        if (configFromFiles.hasPath("peer.discovery.external.ip")) {
+            String externalIpFromConfig = configFromFiles.getString("peer.discovery.external.ip").trim();
+            if (!externalIpFromConfig.isEmpty()){
                 try {
-                    BufferedReader in = new BufferedReader(new InputStreamReader(
-                            new URL("http://checkip.amazonaws.com").openStream()));
-                    externalIp = in.readLine();
-                    if (externalIp == null || externalIp.trim().isEmpty()) {
-                        throw new IOException("Invalid address: '" + externalIp + "'");
-                    }
-                    try {
-                        InetAddress.getByName(externalIp);
-                    } catch (Exception e) {
-                        throw new IOException("Invalid address: '" + externalIp + "'");
-                    }
-                    logger.info("External address identified: {}", externalIp);
+                    InetAddress addr = InetAddress.getByName(externalIpFromConfig);
+                    externalIp = addr.getHostAddress();
+                    logger.info("External address identified {}", externalIp);
+                    return externalIp;
                 } catch (IOException e) {
-                    externalIp = bindIp();
-                    logger.warn("Can't get external IP. Fall back to peer.bind.ip: " + externalIp + " :" + e);
+                    externalIp = null;
+                    logger.warn("Can't resolve external address");
                 }
             }
-            return externalIp;
-
-        } else {
-            return config.getString("peer.discovery.external.ip").trim();
         }
+
+        externalIp = getMyPublicIpFromRemoteService();
+        return externalIp;
+    }
+
+    public String getMyPublicIpFromRemoteService(){
+        logger.info("External IP wasn't set or resolved, using checkip.amazonaws.com to identify it...");
+        try {
+            try (BufferedReader in = new BufferedReader(new InputStreamReader(new URL("http://checkip.amazonaws.com").openStream()))) {
+                externalIp = in.readLine();
+            }
+
+            if (externalIp == null || externalIp.trim().isEmpty()) {
+                throw new IOException("Invalid address: '" + externalIp + "'");
+            }
+
+            tryParseIpOrThrow();
+            logger.info("External address identified: {}", externalIp);
+        } catch (IOException e) {
+            logger.error("Can't get external IP. " + e);
+            externalIp = getPeerDiscoveryBindAddress();
+        }
+        return externalIp;
     }
 
     @ValidateMe
     public String getKeyValueDataSource() {
-        return config.getString("keyvalue.datasource");
+        return configFromFiles.getString("keyvalue.datasource");
     }
 
     @ValidateMe
     public boolean isSyncEnabled() {
-        return this.syncEnabled == null ? config.getBoolean("sync.enabled") : syncEnabled;
+        return this.syncEnabled == null ? configFromFiles.getBoolean("sync.enabled") : syncEnabled;
     }
 
     public void setSyncEnabled(Boolean syncEnabled) {
@@ -635,20 +642,21 @@ public abstract class SystemProperties {
     @ValidateMe
     public String genesisInfo() {
 
-        if (genesisInfo == null)
-            return config.getString("genesis");
-        else
+        if (genesisInfo == null) {
+            return configFromFiles.getString("genesis");
+        } else {
             return genesisInfo;
+        }
     }
 
     @ValidateMe
     public int txOutdatedThreshold() {
-        return config.getInt("transaction.outdated.threshold");
+        return configFromFiles.getInt("transaction.outdated.threshold");
     }
 
     @ValidateMe
     public int txOutdatedTimeout() {
-        return config.getInt("transaction.outdated.timeout");
+        return configFromFiles.getInt("transaction.outdated.timeout");
     }
 
     public void setGenesisInfo(String genesisInfo){
@@ -656,7 +664,7 @@ public abstract class SystemProperties {
     }
 
     public String dump() {
-        return config.root().render(ConfigRenderOptions.defaults().setComments(false));
+        return configFromFiles.root().render(ConfigRenderOptions.defaults().setComments(false));
     }
 
     public int scoringNumberOfNodes() {
@@ -690,11 +698,11 @@ public abstract class SystemProperties {
     }
 
     protected int getInt(String path, int val) {
-        return config.hasPath(path) ? config.getInt(path) : val;
+        return configFromFiles.hasPath(path) ? configFromFiles.getInt(path) : val;
     }
 
     protected long getLong(String path, long val) {
-        return config.hasPath(path) ? config.getLong(path) : val;
+        return configFromFiles.hasPath(path) ? configFromFiles.getLong(path) : val;
     }
 
     /*
@@ -703,32 +711,40 @@ public abstract class SystemProperties {
      *
      */
     public boolean vmTestLoadLocal() {
-        return config.hasPath("GitHubTests.VMTest.loadLocal") ?
-                config.getBoolean("GitHubTests.VMTest.loadLocal") : DEFAULT_VMTEST_LOAD_LOCAL;
+        return configFromFiles.hasPath("GitHubTests.VMTest.loadLocal") ?
+                configFromFiles.getBoolean("GitHubTests.VMTest.loadLocal") : DEFAULT_VMTEST_LOAD_LOCAL;
     }
 
     public String blocksLoader() {
-        return config.hasPath("blocks.loader") ?
-                config.getString("blocks.loader") : DEFAULT_BLOCKS_LOADER;
+        return configFromFiles.hasPath("blocks.loader") ?
+                configFromFiles.getString("blocks.loader") : DEFAULT_BLOCKS_LOADER;
     }
 
     public String customSolcPath() {
-        return config.hasPath("solc.path") ? config.getString("solc.path"): null;
+        return configFromFiles.hasPath("solc.path") ? configFromFiles.getString("solc.path"): null;
     }
 
     public String netName() {
-        return config.hasPath("blockchain.config.name") ? config.getString("blockchain.config.name") : null;
+        return configFromFiles.hasPath("blockchain.config.name") ? configFromFiles.getString("blockchain.config.name") : null;
     }
 
     public String corsDomains() {
-        return config.hasPath(PROPERTY_RPC_CORS) ?
-                config.getString(PROPERTY_RPC_CORS) : null;
+        return configFromFiles.hasPath(PROPERTY_RPC_CORS) ?
+                configFromFiles.getString(PROPERTY_RPC_CORS) : null;
     }
 
     protected long getLongProperty(String propertyName, long defaultValue) {
-        return config.hasPath(propertyName) ? config.getLong(propertyName) : defaultValue;
+        return configFromFiles.hasPath(propertyName) ? configFromFiles.getLong(propertyName) : defaultValue;
     }
     protected boolean getBooleanProperty(String propertyName, boolean defaultValue) {
-        return config.hasPath(propertyName) ? config.getBoolean(propertyName) : defaultValue;
+        return configFromFiles.hasPath(propertyName) ? configFromFiles.getBoolean(propertyName) : defaultValue;
+    }
+
+    private void tryParseIpOrThrow() throws IOException {
+        try {
+            InetAddress.getByName(externalIp);
+        } catch (Exception e) {
+            throw new IOException("Invalid address: '" + externalIp + "'");
+        }
     }
 }

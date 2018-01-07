@@ -60,8 +60,6 @@ import static org.ethereum.net.message.StaticMessages.PONG_MESSAGE;
  *  <li>PONG        :   Confirm that they themselves are still alive</li>
  * </ul>
  */
-@Component
-@Scope("prototype")
 public class P2pHandler extends SimpleChannelInboundHandler<P2pMessage> {
 
     public static final byte VERSION = 4;
@@ -84,14 +82,15 @@ public class P2pHandler extends SimpleChannelInboundHandler<P2pMessage> {
     private int ethInbound;
     private int ethOutbound;
 
-    @Autowired
-    EthereumListener ethereumListener;
+    private final EthereumListener ethereumListener;
+    private final ConfigCapabilities configCapabilities;
+    private final SystemProperties config;
 
-    @Autowired
-    ConfigCapabilities configCapabilities;
-
-    @Autowired
-    SystemProperties config;
+    public P2pHandler(EthereumListener ethereumListener, ConfigCapabilities configCapabilities, SystemProperties config) {
+        this.ethereumListener = ethereumListener;
+        this.configCapabilities = configCapabilities;
+        this.config = config;
+    }
 
     private Channel channel;
     private ScheduledFuture<?> pingTask;
@@ -109,8 +108,9 @@ public class P2pHandler extends SimpleChannelInboundHandler<P2pMessage> {
     @Override
     public void channelRead0(final ChannelHandlerContext ctx, P2pMessage msg) throws InterruptedException {
 
-        if (P2pMessageCodes.inRange(msg.getCommand().asByte()))
+        if (P2pMessageCodes.inRange(msg.getCommand().asByte())) {
             logger.trace("P2PHandler invoke: [{}]", msg.getCommand());
+        }
 
         ethereumListener.trace(String.format("P2PHandler invoke: [%s]", msg.getCommand()));
 

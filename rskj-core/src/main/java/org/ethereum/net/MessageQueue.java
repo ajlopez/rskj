@@ -30,8 +30,6 @@ import org.ethereum.net.p2p.PingMessage;
 import org.ethereum.net.server.Channel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Scope;
-import org.springframework.stereotype.Component;
 
 import java.util.Queue;
 import java.util.concurrent.*;
@@ -54,8 +52,6 @@ import static org.ethereum.net.message.StaticMessages.DISCONNECT_MESSAGE;
  *
  * @author Roman Mandeleil
  */
-@Component
-@Scope("prototype")
 public class MessageQueue {
 
     private static final Logger logger = LoggerFactory.getLogger("net");
@@ -107,10 +103,8 @@ public class MessageQueue {
             hasPing = true;
         }
 
-        if (msg.getAnswerMessage() != null)
-            requestQueue.add(new MessageRoundtrip(msg));
-        else
-            respondQueue.add(new MessageRoundtrip(msg));
+        Queue<MessageRoundtrip> queue = msg.getAnswerMessage() != null ? requestQueue : respondQueue;
+        queue.add(new MessageRoundtrip(msg));
     }
 
     public void disconnect() {
@@ -139,8 +133,9 @@ public class MessageQueue {
             if (waitingMessage.getAnswerMessage() != null
                     && msg.getClass() == waitingMessage.getAnswerMessage()) {
                 messageRoundtrip.answer();
-                if (waitingMessage instanceof EthMessage)
+                if (waitingMessage instanceof EthMessage) {
                     channel.getPeerStats().pong(messageRoundtrip.lastTimestamp);
+                }
                 logger.trace("Message round trip covered: [{}] ",
                         messageRoundtrip.getMsg().getClass());
             }
@@ -148,8 +143,9 @@ public class MessageQueue {
     }
 
     private void removeAnsweredMessage(MessageRoundtrip messageRoundtrip) {
-        if (messageRoundtrip != null && messageRoundtrip.isAnswered())
+        if (messageRoundtrip != null && messageRoundtrip.isAnswered()) {
             requestQueue.remove();
+        }
     }
 
     private void nudgeQueue() {

@@ -18,23 +18,18 @@
 
 package co.rsk.config;
 
-import co.rsk.bitcoinj.core.*;
-import co.rsk.bitcoinj.script.Script;
-
-import java.util.List;
+import co.rsk.bitcoinj.core.Coin;
+import co.rsk.bitcoinj.core.NetworkParameters;
+import co.rsk.peg.AddressBasedAuthorizer;
+import co.rsk.peg.Federation;
 
 public class BridgeConstants {
-
     protected String btcParamsString;
 
-    protected List<BtcECKey> federatorPublicKeys;
-    protected int federatorsRequiredToSign;
-    protected Script federationPubScript;
-    protected Address federationAddress;
-    // We ignore txs to the federation before this time
-    protected long federationAddressCreationTime;
+    protected Federation genesisFederation;
 
     protected int btc2RskMinimumAcceptableConfirmations;
+    protected int btc2RskMinimumAcceptableConfirmationsOnRsk;
     protected int rsk2BtcMinimumAcceptableConfirmations;
     protected int btcBroadcastingMinimumAcceptableBlocks;
 
@@ -45,6 +40,19 @@ public class BridgeConstants {
     protected Coin minimumLockTxValue;
     protected Coin minimumReleaseTxValue;
 
+    protected long federationActivationAge;
+
+    protected long fundsMigrationAgeSinceActivationBegin;
+    protected long fundsMigrationAgeSinceActivationEnd;
+
+    protected AddressBasedAuthorizer federationChangeAuthorizer;
+
+    protected AddressBasedAuthorizer lockWhitelistChangeAuthorizer;
+
+    protected AddressBasedAuthorizer feePerKbChangeAuthorizer;
+
+    protected Coin genesisFeePerKb;
+
     public NetworkParameters getBtcParams() {
         return NetworkParameters.fromID(btcParamsString);
     }
@@ -53,37 +61,20 @@ public class BridgeConstants {
         return btcParamsString;
     }
 
-    public List<BtcECKey> getFederatorPublicKeys() {
-        return federatorPublicKeys;
-    }
-
-    public int getFederatorsRequiredToSign() {
-        return federatorsRequiredToSign;
-    }
-
-    public Script getFederationPubScript() {
-        return federationPubScript;
-    }
-
-    public Address getFederationAddress() {
-        return federationAddress;
-    }
-
-    public long getFederationAddressCreationTime() { return federationAddressCreationTime; }
+    public Federation getGenesisFederation() { return genesisFederation; }
 
     public int getBtc2RskMinimumAcceptableConfirmations() {
         return btc2RskMinimumAcceptableConfirmations;
+    }
+
+    public int getBtc2RskMinimumAcceptableConfirmationsOnRsk() {
+        return btc2RskMinimumAcceptableConfirmationsOnRsk;
     }
 
     public int getRsk2BtcMinimumAcceptableConfirmations() {
         return rsk2BtcMinimumAcceptableConfirmations;
     }
 
-    public int getBtcBroadcastingMinimumAcceptableBlocks() {
-        return btcBroadcastingMinimumAcceptableBlocks;
-    }
-
-    
     public int getUpdateBridgeExecutionPeriod() { return updateBridgeExecutionPeriod; }
 
     public int getMaxBtcHeadersPerRskBlock() { return maxBtcHeadersPerRskBlock; }
@@ -91,4 +82,22 @@ public class BridgeConstants {
     public Coin getMinimumLockTxValue() { return minimumLockTxValue; }
 
     public Coin getMinimumReleaseTxValue() { return minimumReleaseTxValue; }
+
+    public long getFederationActivationAge() { return federationActivationAge; }
+
+    public long getFundsMigrationAgeSinceActivationBegin() {
+        return fundsMigrationAgeSinceActivationBegin;
+    }
+
+    public long getFundsMigrationAgeSinceActivationEnd() {
+        return fundsMigrationAgeSinceActivationEnd;
+    }
+
+    public AddressBasedAuthorizer getFederationChangeAuthorizer() { return federationChangeAuthorizer; }
+
+    public AddressBasedAuthorizer getLockWhitelistChangeAuthorizer() { return lockWhitelistChangeAuthorizer; }
+
+    public AddressBasedAuthorizer getFeePerKbChangeAuthorizer() { return feePerKbChangeAuthorizer; }
+
+    public Coin getGenesisFeePerKb() { return genesisFeePerKb; }
 }

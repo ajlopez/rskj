@@ -20,6 +20,7 @@
 package org.ethereum.db;
 
 import co.rsk.db.ContractDetailsImpl;
+import co.rsk.panic.PanicProcessor;
 import co.rsk.trie.Trie;
 import co.rsk.trie.TrieImpl;
 import org.apache.commons.collections4.MapUtils;
@@ -40,6 +41,8 @@ import static org.ethereum.util.ByteUtil.EMPTY_BYTE_ARRAY;
  * @since 24.06.2014
  */
 public class ContractDetailsCacheImpl implements ContractDetails {
+
+    private static final PanicProcessor panicProcessor = new PanicProcessor();
 
     private Map<DataWord, DataWord> storage = new HashMap<>();
     private Map<DataWord, byte[]> bytesStorage = new HashMap<>();
@@ -73,9 +76,9 @@ public class ContractDetailsCacheImpl implements ContractDetails {
     public DataWord get(DataWord key) {
 
         DataWord value = storage.get(key);
-        if (value != null)
+        if (value != null) {
             value = value.clone();
-        else{
+        } else{
             if (origContract == null) {
                 return null;
             }
@@ -84,19 +87,20 @@ public class ContractDetailsCacheImpl implements ContractDetails {
             storage.put(key.clone(), value == null ? DataWord.ZERO.clone() : value.clone());
         }
 
-        if (value == null || value.isZero())
+        if (value == null || value.isZero()) {
             return null;
-        else
+        } else {
             return value;
+        }
     }
 
     @Override
     public byte[] getBytes(DataWord key) {
 
         byte[] value = bytesStorage.get(key);
-        if (value != null)
+        if (value != null) {
             value = value.clone();
-        else{
+        } else{
             if (origContract == null) {
                 return null;
             }
@@ -105,10 +109,11 @@ public class ContractDetailsCacheImpl implements ContractDetails {
             bytesStorage.put(key.clone(), value == null ? null : value.clone());
         }
 
-        if (value == null)
+        if (value == null) {
             return null;
-        else
+        } else {
             return value;
+        }
     }
 
     @Override
@@ -145,36 +150,8 @@ public class ContractDetailsCacheImpl implements ContractDetails {
 
     @Override
     public void decode(byte[] rlpCode) {
-        ArrayList<RLPElement> data = RLP.decode2(rlpCode);
-        RLPList rlpList = (RLPList) data.get(0);
-
-        RLPList keys = (RLPList) rlpList.get(0);
-        RLPList values = (RLPList) rlpList.get(1);
-        RLPElement code = rlpList.get(2);
-
-
-        for (int i = 0; i < keys.size(); ++i){
-
-            RLPItem key   = (RLPItem)keys.get(i);
-            RLPItem value = (RLPItem)values.get(i);
-
-            storage.put(new DataWord(key.getRLPData()), new DataWord(value.getRLPData()));
-        }
-
-        this.code = (code.getRLPData() == null) ? EMPTY_BYTE_ARRAY : code.getRLPData();
-
-        if (rlpList.size() > 3) {
-            RLPList keys2 = (RLPList) rlpList.get(3);
-            RLPList values2 = (RLPList) rlpList.get(4);
-
-            for (int i = 0; i < keys2.size(); ++i){
-
-                RLPItem key   = (RLPItem)keys2.get(i);
-                RLPItem value = (RLPItem)values2.get(i);
-
-                bytesStorage.put(new DataWord(key.getRLPData()), value.getRLPData());
-            }
-        }
+        panicProcessor.panic("contractdetailscacheimpl", "Decode method should not be invoked.");
+        throw new UnsupportedOperationException("No decode option during cache state");
     }
 
     @Override
@@ -197,57 +174,10 @@ public class ContractDetailsCacheImpl implements ContractDetails {
         return deleted;
     }
 
-
     @Override
     public byte[] getEncoded() {
-
-        byte[][] keys = new byte[storage.size()][];
-        byte[][] values = new byte[storage.size()][];
-        byte[][] keys2 = new byte[storage.size()][];
-        byte[][] values2 = new byte[storage.size()][];
-
-        int i = 0;
-        for (DataWord key : storage.keySet()){
-
-            DataWord value = storage.get(key);
-
-            keys[i] = RLP.encodeElement(key.getData());
-            values[i] = RLP.encodeElement(value.getNoLeadZeroesData());
-
-            ++i;
-        }
-
-        for (DataWord key : bytesStorage.keySet()) {
-            byte[] value = bytesStorage.get(key);
-
-            keys[i] = RLP.encodeElement(key.getData());
-            values[i] = RLP.encodeElement(value);
-
-            ++i;
-        }
-
-        byte[] rlpKeysList = RLP.encodeList(keys);
-        byte[] rlpValuesList = RLP.encodeList(values);
-        byte[] rlpCode = RLP.encodeElement(code);
-
-        if (!bytesStorage.isEmpty()) {
-            i = 0;
-            for (DataWord key : bytesStorage.keySet()) {
-                byte[] value = bytesStorage.get(key);
-
-                keys2[i] = RLP.encodeElement(key.getData());
-                values2[i] = RLP.encodeElement(value);
-
-                ++i;
-            }
-
-            byte[] rlpKeysList2 = RLP.encodeList(keys2);
-            byte[] rlpValuesList2 = RLP.encodeList(values2);
-
-            return RLP.encodeList(rlpKeysList, rlpValuesList, rlpCode, rlpKeysList, rlpValuesList);
-        }
-        else
-            return RLP.encodeList(rlpKeysList, rlpValuesList, rlpCode);
+        panicProcessor.panic("contractdetailscacheimpl", "getEncoded method should not be invoked.");
+        throw new UnsupportedOperationException("No getEncoded option during cache state");
     }
 
     @Override
@@ -290,8 +220,9 @@ public class ContractDetailsCacheImpl implements ContractDetails {
             DataWord key   = storageKeys.get(i);
             DataWord value = storageValues.get(i);
 
-            if (value.isZero())
+            if (value.isZero()) {
                 storage.put(key, null);
+            }
         }
 
     }

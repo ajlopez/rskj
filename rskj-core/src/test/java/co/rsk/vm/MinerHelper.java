@@ -57,7 +57,7 @@ public class MinerHelper {
 
     byte[] latestStateRootHash = null;
     long totalGasUsed = 0;
-    long totalPaidFees = 0;
+    BigInteger totalPaidFees = BigInteger.ZERO;
     List<TransactionReceipt> txReceipts;
     private GasLimitCalculator gasLimitCalculator;
 
@@ -66,13 +66,13 @@ public class MinerHelper {
         this.repository = repository;
         this.blockchain = blockchain;
        // this.blockStore =blockStore;
-        gasLimitCalculator = new GasLimitCalculator();
+        gasLimitCalculator = new GasLimitCalculator(RskSystemProperties.CONFIG);
     }
 
     public void processBlock( Block block, Block parent) {
         latestStateRootHash = null;
         totalGasUsed = 0;
-        totalPaidFees = 0;
+        totalPaidFees = BigInteger.ZERO;
         txReceipts = new ArrayList<>();
 
         //Repository originalRepo  = ((Repository) ethereum.getRepository()).getSnapshotTo(parent.getStateRoot());
@@ -95,9 +95,11 @@ public class MinerHelper {
             panicProcessor.panic("minerserver", String.format("Strange state in block %d %s", block.getNumber(), Hex.toHexString(block.getHash())));
         }
 
+        int txindex = 0;
+
         for (Transaction tx : block.getTransactionsList()) {
 
-            TransactionExecutor executor = new TransactionExecutor(tx, block.getCoinbase(),
+            TransactionExecutor executor = new TransactionExecutor(tx, txindex++, block.getCoinbase(),
                     track, blockStore, blockchain.getReceiptStore(),
                     programInvokeFactory, block, new EthereumListenerAdapter(), totalGasUsed);
 
@@ -107,9 +109,9 @@ public class MinerHelper {
             executor.finalization();
 
             long gasUsed = executor.getGasUsed();
-            long paidFees = executor.getPaidFees();
+            BigInteger paidFees = executor.getPaidFees();
             totalGasUsed += gasUsed;
-            totalPaidFees += paidFees;
+            totalPaidFees = totalPaidFees.add(paidFees);
 
             track.commit();
 
@@ -118,6 +120,8 @@ public class MinerHelper {
             receipt.setCumulativeGas(totalGasUsed);
             latestStateRootHash = originalRepo.getRoot();
             receipt.setPostTxState(latestStateRootHash);
+            receipt.setTxStatus(executor.getReceipt().isSuccessful());
+            receipt.setStatus(executor.getReceipt().getStatus());
             receipt.setTransaction(tx);
             receipt.setLogInfoList(executor.getVMLogs());
 
@@ -141,7 +145,7 @@ public class MinerHelper {
         newBlock.getHeader().setLogsBloom(logBloom.getData());
 
         BigInteger minGasLimit = BigInteger.valueOf(RskSystemProperties.CONFIG.getBlockchainConfig().getCommonConstants().getMinGasLimit());
-        BigInteger targetGasLimit = BigInteger.valueOf(RskSystemProperties.CONFIG.getBlockchainConfig().getCommonConstants().getTargetGasLimit());
+        BigInteger targetGasLimit = BigInteger.valueOf(RskSystemProperties.CONFIG.getTargetGasLimit());
         BigInteger parentGasLimit = new BigInteger(1, parent.getGasLimit());
         BigInteger gasLimit = gasLimitCalculator.calculateBlockGasLimit(parentGasLimit, BigInteger.valueOf(totalGasUsed), minGasLimit, targetGasLimit, false);
 

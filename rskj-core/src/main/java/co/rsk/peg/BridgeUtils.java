@@ -18,18 +18,23 @@
 
 package co.rsk.peg;
 
-import co.rsk.config.BridgeConstants;
-import co.rsk.config.RskSystemProperties;
-import org.apache.commons.lang3.StringUtils;
 import co.rsk.bitcoinj.core.*;
 import co.rsk.bitcoinj.script.Script;
-import co.rsk.bitcoinj.store.BtcBlockStore;
 import co.rsk.bitcoinj.store.BlockStoreException;
+import co.rsk.bitcoinj.store.BtcBlockStore;
+import co.rsk.bitcoinj.wallet.Wallet;
+import co.rsk.config.BridgeConstants;
+import co.rsk.config.RskSystemProperties;
+import co.rsk.peg.bitcoin.RskAllowUnconfirmedCoinSelector;
+import org.apache.commons.lang3.StringUtils;
 import org.ethereum.config.BlockchainNetConfig;
 import org.ethereum.vm.PrecompiledContracts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongycastle.util.encoders.Hex;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * @author Oscar Guindzberg
@@ -45,14 +50,14 @@ public class BridgeUtils {
             return null;
         }
         for (int i = 0; i < (headHeight - height); i++) {
-            if (storedBlock==null) {
+            if (storedBlock == null) {
                 return null;
             }
-            
+
             Sha256Hash prevBlockHash = storedBlock.getHeader().getPrevBlockHash();
             storedBlock = blockStore.get(prevBlockHash);
         }
-        if (storedBlock!=null) {
+        if (storedBlock != null) {
             if (storedBlock.getHeight() != height) {
                 throw new IllegalStateException("Block height is " + storedBlock.getHeight() + " but should be " + headHeight);
             }
@@ -62,21 +67,54 @@ public class BridgeUtils {
         }
     }
 
-    public static boolean isLockTx(BtcTransaction tx, TransactionBag wallet, BridgeConstants bridgeConstants) {
-        // First, check tx is not a typical release tx (tx spending from the federation address and
-        // optionally sending some change to the federation address)
-        int i = 0;
-        for (TransactionInput transactionInput : tx.getInputs()) {
-            try {
-                transactionInput.getScriptSig().correctlySpends(tx, i, bridgeConstants.getFederationPubScript(), Script.ALL_VERIFY_FLAGS);
-                // There is an input spending from the federation address, this is not a lock tx
-                return false;
-            } catch (ScriptException se) {
-                // do-nothing, input does not spends from the federation address
-            }
-            i++;
+    public static Wallet getFederationNoSpendWallet(Context btcContext, Federation federation) {
+        return getFederationsNoSpendWallet(btcContext, Arrays.asList(federation));
+    }
+
+    public static Wallet getFederationsNoSpendWallet(Context btcContext, List<Federation> federations) {
+        Wallet wallet = new BridgeBtcWallet(btcContext, federations);
+        federations.forEach(federation -> wallet.addWatchedAddress(federation.getAddress(), federation.getCreationTime().toEpochMilli()));
+        return wallet;
+    }
+
+    public static Wallet getFederationSpendWallet(Context btcContext, Federation federation, List<UTXO> utxos) {
+        return getFederationsSpendWallet(btcContext, Arrays.asList(federation), utxos);
+    }
+
+    public static Wallet getFederationsSpendWallet(Context btcContext, List<Federation> federations, List<UTXO> utxos) {
+        Wallet wallet = new BridgeBtcWallet(btcContext, federations);
+
+        RskUTXOProvider utxoProvider = new RskUTXOProvider(btcContext.getParams(), utxos);
+        wallet.setUTXOProvider(utxoProvider);
+        federations.stream().forEach(federation -> {
+            wallet.addWatchedAddress(federation.getAddress(), federation.getCreationTime().toEpochMilli());
+        });
+        wallet.setCoinSelector(new RskAllowUnconfirmedCoinSelector());
+        return wallet;
+    }
+
+    private static boolean scriptCorrectlySpendsTx(BtcTransaction tx, int index, Script script) {
+        try {
+            TransactionInput txInput = tx.getInput(index);
+            txInput.getScriptSig().correctlySpends(tx, index, script, Script.ALL_VERIFY_FLAGS);
+            return true;
+        } catch (ScriptException se) {
+            return false;
         }
-        Coin valueSentToMe = tx.getValueSentToMe(wallet);
+    }
+
+    public static boolean isLockTx(BtcTransaction tx, List<Federation> federations, Context btcContext, BridgeConstants bridgeConstants) {
+        // First, check tx is not a typical release tx (tx spending from the any of the federation addresses and
+        // optionally sending some change to any of the federation addresses)
+        for (int i = 0; i < tx.getInputs().size(); i++) {
+            final int index = i;
+            if (federations.stream().anyMatch(federation -> scriptCorrectlySpendsTx(tx, index, federation.getP2SHScript()))) {
+                return false;
+            }
+        }
+
+        Wallet federationsWallet = BridgeUtils.getFederationsNoSpendWallet(btcContext, federations);
+        Coin valueSentToMe = tx.getValueSentToMe(federationsWallet);
 
         int valueSentToMeSignum = valueSentToMe.signum();
         if (valueSentToMe.isLessThan(bridgeConstants.getMinimumLockTxValue())) {
@@ -85,11 +123,15 @@ public class BridgeUtils {
         return (valueSentToMeSignum > 0 && !valueSentToMe.isLessThan(bridgeConstants.getMinimumLockTxValue()));
     }
 
-    public static boolean isReleaseTx(BtcTransaction tx, BridgeConstants bridgeConstants) {
+    public static boolean isLockTx(BtcTransaction tx, Federation federation, Context btcContext, BridgeConstants bridgeConstants) {
+        return isLockTx(tx, Arrays.asList(federation), btcContext, bridgeConstants);
+    }
+
+    public static boolean isReleaseTx(BtcTransaction tx, Federation federation, BridgeConstants bridgeConstants) {
         int i = 0;
         for (TransactionInput transactionInput : tx.getInputs()) {
             try {
-                transactionInput.getScriptSig().correctlySpends(tx, i, bridgeConstants.getFederationPubScript(), Script.ALL_VERIFY_FLAGS);
+                transactionInput.getScriptSig().correctlySpends(tx, i, federation.getP2SHScript(), Script.ALL_VERIFY_FLAGS);
                 // There is an input spending from the federation address, this is a release tx
                 return true;
             } catch (ScriptException se) {
@@ -100,23 +142,62 @@ public class BridgeUtils {
         return false;
     }
 
+    public static boolean isMigrationTx(BtcTransaction btcTx, Federation activeFederation, Federation retiringFederation, Context btcContext, BridgeConstants bridgeConstants) {
+        if (retiringFederation == null) {
+            return false;
+        }
+        boolean moveFromRetiring = isReleaseTx(btcTx, retiringFederation, bridgeConstants);
+        boolean moveToActive = isLockTx(btcTx, activeFederation, btcContext, bridgeConstants);
+
+        return moveFromRetiring && moveToActive;
+    }
 
     public static Address recoverBtcAddressFromEthTransaction(org.ethereum.core.Transaction tx, NetworkParameters networkParameters) {
         org.ethereum.crypto.ECKey key = tx.getKey();
         byte[] pubKey = key.getPubKey(true);
-        return  BtcECKey.fromPublicOnly(pubKey).toAddress(networkParameters);
+        return BtcECKey.fromPublicOnly(pubKey).toAddress(networkParameters);
     }
 
     public static boolean isFreeBridgeTx(org.ethereum.core.Transaction rskTx, long blockNumber) {
         BlockchainNetConfig blockchainConfig = RskSystemProperties.CONFIG.getBlockchainConfig();
         byte[] receiveAddress = rskTx.getReceiveAddress();
 
-        if (receiveAddress == null)
+        if (receiveAddress == null) {
             return false;
+        }
 
+        BridgeConstants bridgeConstants = blockchainConfig.getCommonConstants().getBridgeConstants();
+
+        // Temporary assumption: if areBridgeTxsFree() is true then the current federation
+        // must be the genesis federation.
+        // Once the original federation changes, txs are always paid.
         return StringUtils.equals(Hex.toHexString(receiveAddress), PrecompiledContracts.BRIDGE_ADDR) &&
                blockchainConfig.getConfigForBlock(blockNumber).areBridgeTxsFree() &&
-               rskTx.getSignature() != null &&
-               blockchainConfig.getCommonConstants().getBridgeConstants().getFederatorPublicKeys().contains(co.rsk.bitcoinj.core.BtcECKey.fromPublicOnly(rskTx.getKey().getPubKey()));
+               rskTx.acceptTransactionSignature() &&
+               (
+                       isFromFederateMember(rskTx, bridgeConstants.getGenesisFederation()) ||
+                       isFromFederationChangeAuthorizedSender(rskTx, bridgeConstants) ||
+                       isFromLockWhitelistChangeAuthorizedSender(rskTx, bridgeConstants) ||
+                       isFromFeePerKbChangeAuthorizedSender(rskTx, bridgeConstants)
+               );
+    }
+
+    private static boolean isFromFederateMember(org.ethereum.core.Transaction rskTx, Federation federation) {
+        return federation.hasMemberWithRskAddress(rskTx.getSender());
+    }
+
+    private static boolean isFromFederationChangeAuthorizedSender(org.ethereum.core.Transaction rskTx, BridgeConstants bridgeConfiguration) {
+        AddressBasedAuthorizer authorizer = bridgeConfiguration.getFederationChangeAuthorizer();
+        return authorizer.isAuthorized(rskTx);
+    }
+
+    private static boolean isFromLockWhitelistChangeAuthorizedSender(org.ethereum.core.Transaction rskTx, BridgeConstants bridgeConfiguration) {
+        AddressBasedAuthorizer authorizer = bridgeConfiguration.getLockWhitelistChangeAuthorizer();
+        return authorizer.isAuthorized(rskTx);
+    }
+
+    private static boolean isFromFeePerKbChangeAuthorizedSender(org.ethereum.core.Transaction rskTx, BridgeConstants bridgeConfiguration) {
+        AddressBasedAuthorizer authorizer = bridgeConfiguration.getFeePerKbChangeAuthorizer();
+        return authorizer.isAuthorized(rskTx);
     }
 }

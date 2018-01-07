@@ -19,6 +19,7 @@
 package co.rsk.core.bc;
 
 import co.rsk.config.RskSystemProperties;
+import co.rsk.core.DifficultyCalculator;
 import co.rsk.validators.*;
 import org.ethereum.core.Repository;
 import org.ethereum.db.BlockStore;
@@ -30,6 +31,8 @@ import org.mockito.Mockito;
 public class BlockValidatorBuilder {
 
     private BlockTxsValidationRule blockTxsValidationRule;
+
+    private BlockTxsFieldsValidationRule blockTxsFieldsValidationRule;
 
     private PrevMinGasPriceRule prevMinGasPriceRule;
 
@@ -54,6 +57,11 @@ public class BlockValidatorBuilder {
     private BlockParentCompositeRule blockParentCompositeRule;
 
     private BlockStore blockStore;
+
+    public BlockValidatorBuilder addBlockTxsFieldsValidationRule() {
+        this.blockTxsFieldsValidationRule = new BlockTxsFieldsValidationRule();
+        return this;
+    }
 
     public BlockValidatorBuilder addBlockTxsValidationRule(Repository repository) {
         this.blockTxsValidationRule = new BlockTxsValidationRule(repository);
@@ -109,7 +117,7 @@ public class BlockValidatorBuilder {
     }
 
     public BlockValidatorBuilder addDifficultyRule() {
-        this.difficultyRule =  new BlockDifficultyRule();
+        this.difficultyRule = new BlockDifficultyRule(new DifficultyCalculator(RskSystemProperties.CONFIG));
         return this;
     }
 
@@ -140,17 +148,14 @@ public class BlockValidatorBuilder {
     }
 
     public BlockValidatorImpl build() {
-        if(this.blockCompositeRule == null) {
-            this. blockCompositeRule = new BlockCompositeRule(this.txsMinGasPriceRule, this.blockUnclesValidationRule, this.blockRootValidationRule, this.remascValidationRule, this.blockTimeStampValidationRule);
+        if (this.blockCompositeRule == null) {
+            this.blockCompositeRule = new BlockCompositeRule(this.txsMinGasPriceRule, this.blockUnclesValidationRule, this.blockRootValidationRule, this.remascValidationRule, this.blockTimeStampValidationRule);
         }
 
-        if(this.blockParentCompositeRule == null) {
-            this.blockParentCompositeRule = new BlockParentCompositeRule(this.blockTxsValidationRule, this.prevMinGasPriceRule, this.parentNumberRule, this.difficultyRule, this.parentGasLimitRule);
+        if (this.blockParentCompositeRule == null) {
+            this.blockParentCompositeRule = new BlockParentCompositeRule(this.blockTxsFieldsValidationRule, this.blockTxsValidationRule, this.prevMinGasPriceRule, this.parentNumberRule, this.difficultyRule, this.parentGasLimitRule);
         }
 
         return new BlockValidatorImpl(this.blockStore, this.blockParentCompositeRule, this.blockCompositeRule);
-
     }
-
-
 }

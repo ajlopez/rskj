@@ -20,7 +20,14 @@ package org.ethereum.rpc;
 
 import co.rsk.config.RskSystemProperties;
 import co.rsk.core.Wallet;
+import co.rsk.core.WalletFactory;
 import co.rsk.net.NodeID;
+import co.rsk.rpc.Web3RskImpl;
+import co.rsk.rpc.modules.eth.EthModule;
+import co.rsk.rpc.modules.eth.EthModuleSolidityDisabled;
+import co.rsk.rpc.modules.eth.EthModuleWalletEnabled;
+import co.rsk.rpc.modules.personal.PersonalModule;
+import co.rsk.rpc.modules.personal.PersonalModuleWalletEnabled;
 import co.rsk.scoring.EventType;
 import co.rsk.scoring.PeerScoringInformation;
 import co.rsk.scoring.PeerScoringManager;
@@ -101,7 +108,10 @@ public class Web3ImplScoringTest {
     public void addAndRemoveBannedAddressUsingIPV4() throws UnknownHostException {
         PeerScoringManager peerScoringManager = createPeerScoringManager();
         Web3Impl web3 = createWeb3(peerScoringManager);
-        InetAddress address = generateIPAddressV4();
+        // generate a random non-local IPv4 address
+        byte[] addressBytes = generateIPv4AddressBytes();
+        addressBytes[0] = (byte) 173;
+        InetAddress address = InetAddress.getByAddress(addressBytes);
 
         Assert.assertTrue(peerScoringManager.hasGoodReputation(address));
 
@@ -114,11 +124,28 @@ public class Web3ImplScoringTest {
         Assert.assertTrue(peerScoringManager.hasGoodReputation(address));
     }
 
+    @Test(expected = JsonRpcInvalidParamException.class)
+    public void banningLocalIPv4AddressThrowsException() throws UnknownHostException {
+        PeerScoringManager peerScoringManager = createPeerScoringManager();
+        Web3Impl web3 = createWeb3(peerScoringManager);
+        // generate a random local IPv4 address
+        byte[] addressBytes = generateIPv4AddressBytes();
+        addressBytes[0] = (byte) 127;
+        InetAddress address = InetAddress.getByAddress(addressBytes);
+
+        Assert.assertTrue(peerScoringManager.hasGoodReputation(address));
+
+        web3.sco_banAddress(address.getHostAddress());
+    }
+
     @Test
     public void addAndRemoveBannedAddressUsingIPV4AndMask() throws UnknownHostException {
         PeerScoringManager peerScoringManager = createPeerScoringManager();
         Web3Impl web3 = createWeb3(peerScoringManager);
-        InetAddress address = generateIPAddressV4();
+        // generate a random non-local IPv4 address
+        byte[] addressBytes = generateIPv4AddressBytes();
+        addressBytes[0] = (byte) 173;
+        InetAddress address = InetAddress.getByAddress(addressBytes);
 
         Assert.assertTrue(peerScoringManager.hasGoodReputation(address));
 
@@ -129,6 +156,20 @@ public class Web3ImplScoringTest {
         web3.sco_unbanAddress(address.getHostAddress() + "/8");
 
         Assert.assertTrue(peerScoringManager.hasGoodReputation(address));
+    }
+
+    @Test(expected = JsonRpcInvalidParamException.class)
+    public void banningUsingLocalIPV4AndMaskThrowsException() throws UnknownHostException {
+        PeerScoringManager peerScoringManager = createPeerScoringManager();
+        Web3Impl web3 = createWeb3(peerScoringManager);
+        // generate a random local IPv4 address
+        byte[] addressBytes = generateIPv4AddressBytes();
+        addressBytes[0] = (byte) 127;
+        InetAddress address = InetAddress.getByAddress(addressBytes);
+
+        Assert.assertTrue(peerScoringManager.hasGoodReputation(address));
+
+        web3.sco_banAddress(address.getHostAddress() + "/8");
     }
 
     @Test
@@ -288,11 +329,14 @@ public class Web3ImplScoringTest {
     }
 
     private static InetAddress generateIPAddressV4() throws UnknownHostException {
-        byte[] bytes = new byte[4];
-
-        random.nextBytes(bytes);
-
+        byte[] bytes = generateIPv4AddressBytes();
         return InetAddress.getByAddress(bytes);
+    }
+
+    private static byte[] generateIPv4AddressBytes() {
+        byte[] bytes = new byte[4];
+        random.nextBytes(bytes);
+        return bytes;
     }
 
     private static InetAddress generateIPAddressV6() throws UnknownHostException {
@@ -305,16 +349,16 @@ public class Web3ImplScoringTest {
 
     private static Web3Impl createWeb3(PeerScoringManager peerScoringManager) {
         SimpleRsk rsk = new SimpleRsk();
-        rsk.setPeerScoringManager(peerScoringManager);
 
         World world = new World();
         SimpleWorldManager worldManager = new SimpleWorldManager();
         worldManager.setBlockchain(world.getBlockChain());
         rsk.worldManager = worldManager;
 
-        Web3Impl web3 = new Web3Impl(rsk, RskSystemProperties.CONFIG, new Wallet());
-
-        return web3;
+        Wallet wallet = WalletFactory.createWallet();
+        PersonalModule pm = new PersonalModuleWalletEnabled(rsk, wallet, null);
+        EthModule em = new EthModule(rsk, new EthModuleSolidityDisabled(), new EthModuleWalletEnabled(rsk, wallet, null));
+        return new Web3RskImpl(rsk, worldManager, RskSystemProperties.CONFIG, Web3Mocks.getMockMinerClient(), Web3Mocks.getMockMinerServer(), pm, em, Web3Mocks.getMockChannelManager(), rsk.getRepository(), peerScoringManager, null, null, null);
     }
 
     private static NodeID generateNodeID() {

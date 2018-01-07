@@ -43,19 +43,25 @@ public class PeerScoring {
                 case INVALID_NETWORK:
                 case INVALID_BLOCK:
                 case INVALID_TRANSACTION:
-                    if (score > 0)
+                case INVALID_MESSAGE:
+                case INVALID_HEADER:
+                case TIMEOUT_MESSAGE:
+                    if (score > 0) {
                         score = 0;
+                    }
                     score--;
                     break;
 
+                case UNEXPECTED_MESSAGE:
                 case FAILED_HANDSHAKE:
                 case SUCCESSFUL_HANDSHAKE:
                 case REPEATED_MESSAGE:
                     break;
 
                 default:
-                    if (score >= 0)
+                    if (score >= 0) {
                         score++;
+                    }
                     break;
             }
         } finally {
@@ -71,7 +77,12 @@ public class PeerScoring {
      *          with a good reputation. Negative values indicates a possible punishment.
      */
     public int getScore() {
-        return score;
+        try {
+            rwlock.readLock().lock();
+            return score;
+        } finally {
+            rwlock.readLock().unlock();
+        }
     }
 
     /**
@@ -84,7 +95,6 @@ public class PeerScoring {
     public int getEventCounter(EventType evt) {
         try {
             rwlock.readLock().lock();
-
             return counters[evt.ordinal()];
         } finally {
             rwlock.readLock().unlock();
@@ -101,8 +111,9 @@ public class PeerScoring {
             rwlock.readLock().lock();
             int counter = 0;
 
-            for (int i = 0; i < counters.length; i++)
+            for (int i = 0; i < counters.length; i++) {
                 counter += counters[i];
+            }
 
             return counter;
         } finally {
@@ -133,11 +144,14 @@ public class PeerScoring {
     public boolean hasGoodReputation() {
         try {
             rwlock.writeLock().lock();
-            if (this.goodReputation)
+            if (this.goodReputation) {
                 return true;
+            }
 
-            if (this.punishmentTime > 0 && this.timeLostGoodReputation > 0 && this.punishmentTime + this.timeLostGoodReputation <= System.currentTimeMillis())
+            if (this.punishmentTime > 0 && this.timeLostGoodReputation > 0
+                    && this.punishmentTime + this.timeLostGoodReputation <= System.currentTimeMillis()) {
                 this.endPunishment();
+            }
 
             return this.goodReputation;
         } finally {
@@ -172,8 +186,9 @@ public class PeerScoring {
      */
     private void endPunishment() {
         //Check locks before doing this function public
-        for (int i = 0; i < counters.length; i++)
+        for (int i = 0; i < counters.length; i++) {
             this.counters[i] = 0;
+        }
         this.goodReputation = true;
         this.timeLostGoodReputation = 0;
     }

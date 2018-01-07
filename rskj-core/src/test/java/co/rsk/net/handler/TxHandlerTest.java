@@ -24,7 +24,7 @@ import org.ethereum.core.TransactionReceipt;
 import org.ethereum.rpc.TypeConverter;
 import org.junit.Test;
 import org.mockito.Mockito;
-import org.testng.Assert;
+import org.junit.Assert;
 
 import java.math.BigInteger;
 import java.util.*;
@@ -109,7 +109,7 @@ public class TxHandlerTest {
         TxsPerAccount tpa = new TxsPerAccount();
         tpa.getTransactions().add(tx1);
         tpa.getTransactions().add(tx2);
-        txsPerAccounts.put(TypeConverter.toJsonHex(BigInteger.valueOf(new Random(0).nextLong()).toByteArray()), tpa);
+        txsPerAccounts.put(TypeConverter.toJsonHex(tx1.getSender()), tpa);
 
         TransactionReceipt receipt = Mockito.mock(TransactionReceipt.class);
         Mockito.when(receipt.getTransaction()).thenReturn(tx1);

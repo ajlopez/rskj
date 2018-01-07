@@ -28,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongycastle.util.encoders.Hex;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -73,6 +74,13 @@ public class BlockExecutor {
     public void executeAndFillAll(Block block, Block parent) {
         BlockResult result = executeAll(block, parent.getStateRoot());
         fill(block, result);
+    }
+
+    public void executeAndFillReal(Block block, Block parent) {
+        BlockResult result = execute(block, parent.getStateRoot(), false, false);
+        if (result != BlockResult.INTERRUPTED_EXECUTION_BLOCK_RESULT) {
+            fill(block, result);
+        }
     }
 
     private void fill(Block block, BlockResult result) {
@@ -142,16 +150,19 @@ public class BlockExecutor {
 
         if (result.getGasUsed() != block.getGasUsed()) {
             logger.error("Block's given gasUsed doesn't match: {} != {} Block {} {}", block.getGasUsed(), result.getGasUsed(), block.getNumber(), block.getShortHash());
-            panicProcessor.panic("invalidgasused", String.format("Block's given logBloom Hash doesn't match: %s != %s", block.getGasUsed(), result.getGasUsed()));
+            panicProcessor.panic("invalidgasused", String.format("Block's given gasUsed doesn't match: %s != %s", block.getGasUsed(), result.getGasUsed()));
             return false;
         }
 
-        long paidFees = result.getPaidFees();
-        long feesPaidToMiner = block.getFeesPaidToMiner();
+        BigInteger paidFees = result.getPaidFees();
+        BigInteger feesPaidToMiner = block.getFeesPaidToMiner();
 
-        if (paidFees != feesPaidToMiner)  {
+        if (!paidFees.equals(feesPaidToMiner))  {
             logger.error("Block's given paidFees doesn't match: {} != {} Block {} {}", feesPaidToMiner, paidFees, block.getNumber(), block.getShortHash());
-            panicProcessor.panic("invalidpaidfees", String.format("Block's given logBloom Hash doesn't match: %s != %s", feesPaidToMiner, paidFees));
+            panicProcessor.panic("invalidpaidfees",
+                    String.format("Block's given logBloom Hash doesn't match: %s != %s",
+                            feesPaidToMiner, paidFees));
+            //ERROR [panic]  invalidpaidfees: Block's given logBloom Hash doesn't match: 10 != 0
             return false;
         }
 
@@ -192,13 +203,16 @@ public class BlockExecutor {
         Repository track = initialRepository.startTracking();
         int i = 1;
         long totalGasUsed = 0;
-        long totalPaidFees = 0;
+        BigInteger totalPaidFees = BigInteger.ZERO;
         List<TransactionReceipt> receipts = new ArrayList<>();
         List<Transaction> executedTransactions = new ArrayList<>();
 
+        int txindex = 0;
+
         for (Transaction tx : block.getTransactionsList()) {
             logger.info("apply block: [{}] tx: [{}] ", block.getNumber(), i);
-            TransactionExecutor txExecutor = new TransactionExecutor(tx, block.getCoinbase(), track, blockStore, blockChain.getReceiptStore(), programInvokeFactory, block, listener, totalGasUsed);
+
+            TransactionExecutor txExecutor = new TransactionExecutor(tx, txindex++, block.getCoinbase(), track, blockStore, blockChain.getReceiptStore(), programInvokeFactory, block, listener, totalGasUsed);
 
             boolean readyToExecute = txExecutor.init();
             if (!ignoreReadyToExecute && !readyToExecute) {
@@ -206,7 +220,8 @@ public class BlockExecutor {
                     logger.warn("block: [{}] discarded tx: [{}]", block.getNumber(), Hex.toHexString(tx.getHash()));
                     continue;
                 } else {
-                    logger.warn("block: [{}] execution interrupted because of invalid tx: [{}]", block.getNumber(), Hex.toHexString(tx.getHash()));
+                    logger.warn("block: [{}] execution interrupted because of invalid tx: [{}]",
+                            block.getNumber(), Hex.toHexString(tx.getHash()));
                     return BlockResult.INTERRUPTED_EXECUTION_BLOCK_RESULT;
                 }
             }
@@ -225,16 +240,19 @@ public class BlockExecutor {
 
             long gasUsed = txExecutor.getGasUsed();
             totalGasUsed += gasUsed;
-            long paidFees = txExecutor.getPaidFees();
-            totalPaidFees += paidFees;
+            BigInteger paidFees = txExecutor.getPaidFees();
+            if (paidFees != null) {
+                totalPaidFees = totalPaidFees.add(paidFees);
+            }
 
             TransactionReceipt receipt = new TransactionReceipt();
             receipt.setGasUsed(gasUsed);
             receipt.setCumulativeGas(totalGasUsed);
             lastStateRootHash = initialRepository.getRoot();
-            receipt.setPostTxState(lastStateRootHash);
+            receipt.setTxStatus(txExecutor.getReceipt().isSuccessful());
             receipt.setTransaction(tx);
             receipt.setLogInfoList(txExecutor.getVMLogs());
+            receipt.setStatus(txExecutor.getReceipt().getStatus());
 
             logger.info("block: [{}] executed tx: [{}] state: [{}]", block.getNumber(), Hex.toHexString(tx.getHash()),
                     Hex.toHexString(lastStateRootHash));

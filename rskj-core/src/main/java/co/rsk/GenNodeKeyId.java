@@ -20,23 +20,40 @@
 package co.rsk;
 
 import org.ethereum.crypto.ECKey;
+import org.ethereum.crypto.HashUtil;
 import org.spongycastle.util.encoders.Hex;
+
+import java.nio.charset.StandardCharsets;
 
 /**
  * Created by ajlopez on 3/9/2016.
- * Used by testnet generator, to generate each node private key and node id
+ * Don't modify
  */
 public class GenNodeKeyId {
     public static void main(String[] args) {
-        ECKey key = new ECKey();
+        String generator = "";
+
+        if (args.length > 0) {
+            generator = args[0];
+        }
+
+        ECKey key;
+        if (generator.equals("")) {
+            key = new ECKey();
+        } else {
+            key = ECKey.fromPrivate(HashUtil.sha3(generator.getBytes(StandardCharsets.UTF_8)));
+        }
+
         String keybytes = Hex.toHexString(key.getPrivKeyBytes());
         String pubkeybytes = Hex.toHexString(key.getPubKey());
+        String compressedpubkeybytes = Hex.toHexString(key.getPubKey(true));
         String address = Hex.toHexString(key.getAddress());
         String nodeid = Hex.toHexString(key.getNodeId());
 
         System.out.println('{');
         System.out.println("   \"privateKey\": \"" + keybytes + "\",");
         System.out.println("   \"publicKey\": \"" + pubkeybytes + "\",");
+        System.out.println("   \"publicKeyCompressed\": \"" + compressedpubkeybytes + "\",");
         System.out.println("   \"address\": \"" + address + "\",");
         System.out.println("   \"nodeId\": \"" + nodeid + "\"");
         System.out.println('}');

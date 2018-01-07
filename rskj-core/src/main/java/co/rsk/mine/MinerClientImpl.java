@@ -21,8 +21,8 @@ package co.rsk.mine;
 import co.rsk.config.RskSystemProperties;
 import co.rsk.core.Rsk;
 import co.rsk.panic.PanicProcessor;
-import com.google.common.annotations.VisibleForTesting;
-import org.ethereum.config.net.TestNetConfig;
+import org.ethereum.config.blockchain.DevNetConfig;
+import org.ethereum.config.blockchain.RegTestConfig;
 import org.ethereum.rpc.TypeConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,16 +45,14 @@ import java.util.TimerTask;
 public class MinerClientImpl implements MinerClient {
     private long nextNonceToUse = 0;
 
-    @Autowired
-    private Rsk rsk;
-
-    @Autowired
-    private MinerServer minerServer;
-
     private static final Logger logger = LoggerFactory.getLogger("minerClient");
     private static final PanicProcessor panicProcessor = new PanicProcessor();
 
     private static final long DELAY_BETWEEN_GETWORK_REFRESH_MS = 1000;
+
+    private final Rsk rsk;
+    private final MinerServer minerServer;
+    private final RskSystemProperties config;
 
     private volatile boolean stop = false;
 
@@ -63,17 +61,18 @@ public class MinerClientImpl implements MinerClient {
     private volatile boolean newBestBlockArrivedFromAnotherNode = false;
 
     private volatile MinerWork work;
+    private Timer aTimer;
 
-    @VisibleForTesting
-    public void setMinerServer(MinerServer minerServer) {
+    @Autowired
+    public MinerClientImpl(Rsk rsk, MinerServer minerServer, RskSystemProperties config) {
+        this.rsk = rsk;
         this.minerServer = minerServer;
+        this.config = config;
     }
 
-    @VisibleForTesting
-    public void setRsk(Rsk rsk) { this.rsk = rsk; }
-
     public void mine() {
-        new Timer("Refresh work for mining").schedule(createRefreshWork(), 0, DELAY_BETWEEN_GETWORK_REFRESH_MS);
+        aTimer = new Timer("Refresh work for mining");
+        aTimer.schedule(createRefreshWork(), 0, DELAY_BETWEEN_GETWORK_REFRESH_MS);
 
         Thread doWorkThread = this.createDoWorkThread();
         doWorkThread.start();
@@ -89,8 +88,9 @@ public class MinerClientImpl implements MinerClient {
             public void run() {
                 isMining = true;
 
-                while (!stop)
+                while (!stop) {
                     doWork();
+                }
 
                 isMining = false;
             }
@@ -103,8 +103,11 @@ public class MinerClientImpl implements MinerClient {
 
     public void doWork() {
         try {
-            if (mineBlock() && !(RskSystemProperties.CONFIG.getBlockchainConfig() instanceof TestNetConfig))
+            if (mineBlock() &&
+                (config.getBlockchainConfig() instanceof RegTestConfig ||
+                config.getBlockchainConfig() instanceof DevNetConfig)) {
                 Thread.sleep(20000);
+            }
         } catch (Exception e) {
             logger.error("Error on mining", e);
             panicProcessor.panic("mine", e.getMessage());
@@ -114,7 +117,7 @@ public class MinerClientImpl implements MinerClient {
     @Override
     public boolean mineBlock() {
         if (this.rsk != null) {
-            if (this.rsk.isSyncingBlocks()) {
+            if (this.rsk.hasBetterBlockToSync()) {
                 try {
                     Thread.sleep(10000);
                 } catch (InterruptedException e1) {
@@ -149,11 +152,13 @@ public class MinerClientImpl implements MinerClient {
         BigInteger target = new BigInteger(1, TypeConverter.stringHexToByteArray(work.getTarget()));
         boolean foundNonce = findNonce(bitcoinMergedMiningBlock, target);
 
-        if (newBestBlockArrivedFromAnotherNode)
+        if (newBestBlockArrivedFromAnotherNode) {
             logger.info("Interrupted mining because another best block arrived");
+        }
 
-        if (stop)
+        if (stop) {
             logger.info("Interrupted mining because MinerClient was stopped");
+        }
 
         if (foundNonce) {
             logger.info("Mined block: " + work.getBlockHashForMergedMining());
@@ -163,6 +168,35 @@ public class MinerClientImpl implements MinerClient {
         return foundNonce;
     }
 
+    @Override
+    public boolean fallbackMineBlock() {
+        // This is not used now. In the future this method could allow
+        // a HSM to provide the signature for an RSK block here.
+
+        if (this.rsk != null) {
+            if (this.rsk.hasBetterBlockToSync()) {
+                try {
+                    Thread.sleep(10000);
+                } catch (InterruptedException e1) {
+                }
+                return false;
+            }
+
+            if (this.rsk.isPlayingBlocks()) {
+                try {
+                    Thread.sleep(10000);
+                } catch (InterruptedException e1) {
+                }
+                return false;
+            }
+        }
+        if (stop) {
+            logger.info("Interrupted mining because MinerClient was stopped");
+        }
+
+        return minerServer.generateFallbackBlock();
+
+    }
     /**
      * findNonce will try to find a valid nonce for bitcoinMergedMiningBlock, that satisfies the given target difficulty.
      *
@@ -192,7 +226,10 @@ public class MinerClientImpl implements MinerClient {
     }
 
     public void stop() {
+
         stop = true;
+        if (aTimer!=null)
+            aTimer.cancel();
     }
 
     /**

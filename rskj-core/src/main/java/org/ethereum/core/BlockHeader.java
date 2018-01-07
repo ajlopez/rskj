@@ -18,7 +18,6 @@
  */
 package org.ethereum.core;
 
-import co.rsk.config.RskSystemProperties;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import org.ethereum.crypto.HashUtil;
@@ -27,7 +26,6 @@ import org.ethereum.util.RLPList;
 import org.ethereum.util.Utils;
 import org.spongycastle.pqc.math.linearalgebra.ByteUtils;
 import org.spongycastle.util.BigIntegers;
-import org.spongycastle.util.encoders.Hex;
 
 import java.math.BigInteger;
 import java.util.List;
@@ -81,9 +79,9 @@ public class BlockHeader implements SerializableObject {
     /* A scalar value equalBytes to the total gas used in transactions in this block */
     private long gasUsed;
     /* A scalar value equalBytes to the total paid fees in transactions in this block */
-    private long paidFees;
+    private BigInteger paidFees;
 
-     /* An arbitrary byte array containing data relevant to this block.
+    /* An arbitrary byte array containing data relevant to this block.
      * With the exception of the genesis block, this must be 32 bytes or fewer */
     private byte[] extraData;
 
@@ -109,16 +107,19 @@ public class BlockHeader implements SerializableObject {
         this.unclesHash = rlpHeader.get(1).getRLPData();
         this.coinbase = rlpHeader.get(2).getRLPData();
         this.stateRoot = rlpHeader.get(3).getRLPData();
-        if (this.stateRoot == null)
+        if (this.stateRoot == null) {
             this.stateRoot = EMPTY_TRIE_HASH;
+        }
 
         this.txTrieRoot = rlpHeader.get(4).getRLPData();
-        if (this.txTrieRoot == null)
+        if (this.txTrieRoot == null) {
             this.txTrieRoot = EMPTY_TRIE_HASH;
+        }
 
         this.receiptTrieRoot = rlpHeader.get(5).getRLPData();
-        if (this.receiptTrieRoot == null)
+        if (this.receiptTrieRoot == null) {
             this.receiptTrieRoot = EMPTY_TRIE_HASH;
+        }
 
         this.logsBloom = rlpHeader.get(6).getRLPData();
         this.difficulty = rlpHeader.get(7).getRLPData();
@@ -128,23 +129,23 @@ public class BlockHeader implements SerializableObject {
         byte[] guBytes = rlpHeader.get(10).getRLPData();
         byte[] tsBytes = rlpHeader.get(11).getRLPData();
 
-        this.number = nrBytes == null ? 0 : (new BigInteger(1, nrBytes)).longValue();
+        this.number = parseBigInteger(nrBytes).longValueExact();
 
         this.gasLimit = glBytes;
-        this.gasUsed = guBytes == null ? 0 : (new BigInteger(1, guBytes)).longValue();
-        this.timestamp = tsBytes == null ? 0 : (new BigInteger(1, tsBytes)).longValue();
+        this.gasUsed = parseBigInteger(guBytes).longValueExact();
+        this.timestamp = parseBigInteger(tsBytes).longValueExact();
 
         this.extraData = rlpHeader.get(12).getRLPData();
 
         byte[] pfBytes = rlpHeader.get(13).getRLPData();
-        this.paidFees = pfBytes == null ? 0 : (new BigInteger(1, pfBytes)).longValue();
+        this.paidFees = parseBigInteger(pfBytes);
         this.minimumGasPrice = rlpHeader.get(14).getRLPData();
 
-        int r=15;
+        int r = 15;
 
         if ((rlpHeader.size() == 19) || (rlpHeader.size() == 16)) {
             byte[] ucBytes = rlpHeader.get(r++).getRLPData();
-            this.uncleCount = ucBytes == null ? 0 : (new BigInteger(1, ucBytes)).intValue();
+            this.uncleCount = parseBigInteger(ucBytes).intValueExact();
         }
 
         if (rlpHeader.size() > r) {
@@ -163,20 +164,8 @@ public class BlockHeader implements SerializableObject {
                        byte[] extraData,
                        byte[] minimumGasPrice,
                        int uncleCount) {
-        this.parentHash = parentHash;
-        this.unclesHash = unclesHash;
-        this.coinbase = coinbase;
-        this.logsBloom = logsBloom;
-        this.difficulty = difficulty;
-        this.number = number;
-        this.gasLimit = gasLimit;
-        this.gasUsed = gasUsed;
-        this.timestamp = timestamp;
-        this.extraData = extraData;
-        this.stateRoot = ByteUtils.clone(EMPTY_TRIE_HASH);
-        this.minimumGasPrice = minimumGasPrice;
-        this.receiptTrieRoot = ByteUtils.clone(EMPTY_TRIE_HASH);
-        this.uncleCount = uncleCount;
+        this(parentHash, unclesHash, coinbase, logsBloom, difficulty, number, gasLimit, gasUsed, timestamp, extraData,
+                null, null, null, minimumGasPrice, uncleCount);
     }
 
     public BlockHeader(byte[] parentHash, byte[] unclesHash, byte[] coinbase,
@@ -198,12 +187,13 @@ public class BlockHeader implements SerializableObject {
         this.timestamp = timestamp;
         this.extraData = extraData;
         this.stateRoot = ByteUtils.clone(EMPTY_TRIE_HASH);
-        this.bitcoinMergedMiningHeader = bitcoinMergedMiningHeader;
-        this.bitcoinMergedMiningMerkleProof = bitcoinMergedMiningMerkleProof;
-        this.bitcoinMergedMiningCoinbaseTransaction = bitcoinMergedMiningCoinbaseTransaction;
         this.minimumGasPrice = minimumGasPrice;
         this.receiptTrieRoot = ByteUtils.clone(EMPTY_TRIE_HASH);
         this.uncleCount = uncleCount;
+        this.paidFees = BigInteger.ZERO;
+        this.bitcoinMergedMiningHeader = bitcoinMergedMiningHeader;
+        this.bitcoinMergedMiningMerkleProof = bitcoinMergedMiningMerkleProof;
+        this.bitcoinMergedMiningCoinbaseTransaction = bitcoinMergedMiningCoinbaseTransaction;
     }
 
     @VisibleForTesting
@@ -237,8 +227,9 @@ public class BlockHeader implements SerializableObject {
 
     public void setUnclesHash(byte[] unclesHash) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter uncles hash");
+        }
 
         this.unclesHash = unclesHash;
     }
@@ -249,8 +240,9 @@ public class BlockHeader implements SerializableObject {
 
     public void setCoinbase(byte[] coinbase) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter coinbase");
+        }
 
         this.coinbase = coinbase;
     }
@@ -261,8 +253,9 @@ public class BlockHeader implements SerializableObject {
 
     public void setStateRoot(byte[] stateRoot) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter state root");
+        }
 
         this.stateRoot = stateRoot;
     }
@@ -273,8 +266,9 @@ public class BlockHeader implements SerializableObject {
 
     public void setReceiptsRoot(byte[] receiptTrieRoot) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter receipts root");
+        }
 
         this.receiptTrieRoot = receiptTrieRoot;
     }
@@ -285,8 +279,9 @@ public class BlockHeader implements SerializableObject {
 
     public void setTransactionsRoot(byte[] stateRoot) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter transactions root");
+        }
 
         this.txTrieRoot = stateRoot;
     }
@@ -306,8 +301,9 @@ public class BlockHeader implements SerializableObject {
 
     public void setDifficulty(byte[] difficulty) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter difficulty");
+        }
 
         this.difficulty = difficulty;
     }
@@ -318,8 +314,9 @@ public class BlockHeader implements SerializableObject {
 
     public void setTimestamp(long timestamp) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter timestamp");
+        }
 
         this.timestamp = timestamp;
     }
@@ -330,8 +327,9 @@ public class BlockHeader implements SerializableObject {
 
     public void setNumber(long number) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter number");
+        }
 
         this.number = number;
     }
@@ -342,8 +340,9 @@ public class BlockHeader implements SerializableObject {
 
     public void setGasLimit(byte[] gasLimit) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter gas limit");
+        }
 
         this.gasLimit = gasLimit;
     }
@@ -352,22 +351,24 @@ public class BlockHeader implements SerializableObject {
         return gasUsed;
     }
 
-    public void setPaidFees(long paidFees) {
+    public void setPaidFees(BigInteger paidFees) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter paid fees");
+        }
 
         this.paidFees = paidFees;
     }
 
-    public long getPaidFees() {
+    public BigInteger getPaidFees() {
         return this.paidFees;
     }
 
     public void setGasUsed(long gasUsed) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter gas used");
+        }
 
         this.gasUsed = gasUsed;
     }
@@ -378,16 +379,18 @@ public class BlockHeader implements SerializableObject {
 
     public void setLogsBloom(byte[] logsBloom) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter logs bloom");
+        }
 
         this.logsBloom = logsBloom;
     }
 
     public void setExtraData(byte[] extraData) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter extra data");
+        }
 
         this.extraData = extraData;
     }
@@ -410,8 +413,9 @@ public class BlockHeader implements SerializableObject {
 
     public void setMinimumGasPrice(byte[] minimumGasPrice) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter minimum gas price");
+        }
 
         this.minimumGasPrice = minimumGasPrice;
     }
@@ -433,7 +437,7 @@ public class BlockHeader implements SerializableObject {
         if (receiptTrieRoot == null) {
             this.receiptTrieRoot = EMPTY_TRIE_HASH;
         }
-        
+
         byte[] receiptTrieRoot = RLP.encodeElement(this.receiptTrieRoot);
 
         byte[] logsBloom = RLP.encodeElement(this.logsBloom);
@@ -443,7 +447,7 @@ public class BlockHeader implements SerializableObject {
         byte[] gasUsed = RLP.encodeBigInteger(BigInteger.valueOf(this.gasUsed));
         byte[] timestamp = RLP.encodeBigInteger(BigInteger.valueOf(this.timestamp));
         byte[] extraData = RLP.encodeElement(this.extraData);
-        byte[] paidFees = RLP.encodeBigInteger(BigInteger.valueOf(this.paidFees));
+        byte[] paidFees = RLP.encodeBigInteger(this.paidFees);
         byte[] mgp = RLP.encodeElement(this.minimumGasPrice);
         List<byte[]> fieldToEncodeList = Lists.newArrayList(parentHash, unclesHash, coinbase,
                 stateRoot, txTrieRoot, receiptTrieRoot, logsBloom, difficulty, number,
@@ -465,9 +469,8 @@ public class BlockHeader implements SerializableObject {
         return RLP.encodeList(fieldToEncodeList.toArray(new byte[][]{}));
     }
 
-    // Warining: This method does not uses the object's attributes
+    // Warning: This method does not use the object's attributes
     public static byte[] getUnclesEncodedEx(List<BlockHeader> uncleList) {
-
         byte[][] unclesEncoded = new byte[uncleList.size()][];
         int i = 0;
         for (BlockHeader uncle : uncleList) {
@@ -478,14 +481,17 @@ public class BlockHeader implements SerializableObject {
     }
 
     public boolean hasMiningFields() {
-        if (this.bitcoinMergedMiningCoinbaseTransaction != null && this.bitcoinMergedMiningCoinbaseTransaction.length > 0)
+        if (this.bitcoinMergedMiningCoinbaseTransaction != null && this.bitcoinMergedMiningCoinbaseTransaction.length > 0) {
             return true;
+        }
 
-        if (this.bitcoinMergedMiningHeader != null && this.bitcoinMergedMiningHeader.length > 0)
+        if (this.bitcoinMergedMiningHeader != null && this.bitcoinMergedMiningHeader.length > 0) {
             return true;
+        }
 
-        if (this.bitcoinMergedMiningMerkleProof != null && this.bitcoinMergedMiningMerkleProof.length > 0)
+        if (this.bitcoinMergedMiningMerkleProof != null && this.bitcoinMergedMiningMerkleProof.length > 0) {
             return true;
+        }
 
         return false;
     }
@@ -503,11 +509,6 @@ public class BlockHeader implements SerializableObject {
 
     public byte[] getPowBoundary() {
         return BigIntegers.asUnsignedByteArray(32, BigInteger.ONE.shiftLeft(256).divide(getDifficultyBI()));
-    }
-
-    public BigInteger calcDifficulty(BlockHeader parent) {
-        return RskSystemProperties.CONFIG.getBlockchainConfig().getConfigForBlock(getNumber()).
-                calcDifficulty(this, parent);
     }
 
     public String toString() {
@@ -538,23 +539,24 @@ public class BlockHeader implements SerializableObject {
     }
 
     // TODO added to comply with SerializableObject
+
     public byte[] getRawHash() {
         return getHash();
     }
-
     // TODO added to comply with SerializableObject
+
     public byte[] getEncodedRaw() {
         return getEncoded();
     }
-
     public byte[] getBitcoinMergedMiningHeader() {
         return bitcoinMergedMiningHeader;
     }
 
     public void setBitcoinMergedMiningHeader(byte[] bitcoinMergedMiningHeader) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter bitcoin merged mining header");
+        }
 
         this.bitcoinMergedMiningHeader = bitcoinMergedMiningHeader;
     }
@@ -565,8 +567,9 @@ public class BlockHeader implements SerializableObject {
 
     public void setBitcoinMergedMiningMerkleProof(byte[] bitcoinMergedMiningMerkleProof) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter bitcoin merged mining merkle proof");
+        }
 
         this.bitcoinMergedMiningMerkleProof = bitcoinMergedMiningMerkleProof;
     }
@@ -577,17 +580,26 @@ public class BlockHeader implements SerializableObject {
 
     public void setBitcoinMergedMiningCoinbaseTransaction(byte[] bitcoinMergedMiningCoinbaseTransaction) {
         /* A sealed block header is immutable, cannot be changed */
-        if (this.sealed)
+        if (this.sealed) {
             throw new SealedBlockHeaderException("trying to alter bitcoin merged mining coinbase transaction");
+        }
 
         this.bitcoinMergedMiningCoinbaseTransaction = bitcoinMergedMiningCoinbaseTransaction;
     }
 
     public String getShortHashForMergedMining() {
-        return Hex.toHexString(getHashForMergedMining()).substring(0, 6);
+        return HashUtil.shortHash(getHashForMergedMining());
     }
 
     public byte[] getHashForMergedMining() {
         return HashUtil.sha3(getEncoded(false));
+    }
+
+    public String getShortHash() {
+        return HashUtil.shortHash(getHash());
+    }
+
+    private static BigInteger parseBigInteger(byte[] bytes) {
+        return bytes == null ? BigInteger.ZERO : BigIntegers.fromUnsignedByteArray(bytes);
     }
 }

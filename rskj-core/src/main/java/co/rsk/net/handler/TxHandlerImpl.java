@@ -38,7 +38,7 @@ import java.util.concurrent.locks.ReentrantLock;
 public class TxHandlerImpl implements TxHandler {
 
     private Repository repository;
-    private WorldManager worldManager;
+    private Blockchain blockchain;
     private Map<String, TxTimestamp> knownTxs = new HashMap<>();
     private Lock knownTxsLock = new ReentrantLock();
     private Map<String, TxsPerAccount> txsPerAccounts = new HashMap<>();
@@ -52,10 +52,12 @@ public class TxHandlerImpl implements TxHandler {
      * life of the application
      *
      * @param worldManager strongly depends on the worldManager
+     * @param repository
+     * @param blockchain
      */
-    public TxHandlerImpl(WorldManager worldManager) {
-        this.worldManager = worldManager;
-        this.repository = (Repository)worldManager.getRepository();
+    public TxHandlerImpl(WorldManager worldManager, org.ethereum.facade.Repository repository, Blockchain blockchain) {
+        this.blockchain = blockchain;
+        this.repository = (Repository) repository;
 
         // Clean old transactions every so seconds
         Executors.newSingleThreadScheduledExecutor().scheduleWithFixedDelay(this::cleanOldTxs, 120, 120, TimeUnit.SECONDS);
@@ -72,11 +74,7 @@ public class TxHandlerImpl implements TxHandler {
     public List<Transaction> retrieveValidTxs(List<Transaction> txs) {
         try {
             knownTxsLock.lock();
-            return new TxValidator().filterTxs( txs,
-                                                knownTxs,
-                                                repository,
-                                                worldManager,
-                                                txsPerAccounts );
+            return new TxValidator().filterTxs(repository, blockchain, txs, knownTxs, txsPerAccounts);
         } finally {
             knownTxsLock.unlock();
         }
@@ -104,11 +102,11 @@ public class TxHandlerImpl implements TxHandler {
                 String accountId = TypeConverter.toJsonHex(txt.tx.getSender());
                 TxsPerAccount txsPerAccount = txsPerAccounts.get(accountId);
 
-                if (txsPerAccount != null)
-                {
+                if (txsPerAccount != null) {
                     txsPerAccount.removeNonce(new BigInteger(1, txt.tx.getNonce()));
-                    if (txsPerAccount.getTransactions().isEmpty())
+                    if (txsPerAccount.getTransactions().isEmpty()) {
                         txsPerAccounts.remove(accountId);
+                    }
                 }
 
                 continue;

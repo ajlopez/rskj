@@ -70,7 +70,7 @@ public class NodeManager {
     void init() {
         discoveryEnabled = config.peerDiscovery();
 
-        homeNode = new Node(config.nodeId(), config.externalIp(), config.listenPort());
+        homeNode = new Node(config.nodeId(), config.getExternalIp(), config.listenPort());
 
         for (Node node : config.peerActive()) {
             NodeHandler handler = new NodeHandler(node, this);
@@ -130,8 +130,9 @@ public class NodeManager {
             Collections.sort(sorted, (o1, o2) -> Integer.compare(o1.getNodeStatistics().getReputation(), o2.getNodeStatistics().getReputation()));
             for (NodeHandler handler : sorted) {
                 nodeHandlerMap.remove(handler.getNode().getAddressAsString());
-                if (nodeHandlerMap.size() <= MAX_NODES)
+                if (nodeHandlerMap.size() <= MAX_NODES) {
                     break;
+                }
             }
         }
     }

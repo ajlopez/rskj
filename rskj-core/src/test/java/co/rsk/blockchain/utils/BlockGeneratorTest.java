@@ -31,9 +31,10 @@ public class BlockGeneratorTest {
     @Test
     public void getBlocks() {
         Block block;
+        BlockGenerator blockGenerator = new BlockGenerator();
 
         for (int k = 0; k <= 4; k++) {
-            block = BlockGenerator.getBlock(k);
+            block = blockGenerator.getBlock(k);
 
             Assert.assertNotNull(block);
             Assert.assertEquals(k, block.getNumber());
@@ -42,12 +43,12 @@ public class BlockGeneratorTest {
 
     @Test
     public void getBlockChain() {
-        List<Block> chain = BlockGenerator.getBlockChain(BlockGenerator.getBlock(2), 10);
+        List<Block> chain = BlockGenerator.getInstance().getBlockChain(BlockGenerator.getInstance().getBlock(2), 10);
 
         Assert.assertNotNull(chain);
         Assert.assertEquals(10, chain.size());
 
-        Block parent = BlockGenerator.getBlock(2);
+        Block parent = BlockGenerator.getInstance().getBlock(2);
 
         for (Block b : chain) {
             Assert.assertNotNull(b);

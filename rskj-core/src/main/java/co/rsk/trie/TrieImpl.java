@@ -19,13 +19,17 @@
 package co.rsk.trie;
 
 import co.rsk.panic.PanicProcessor;
+import com.google.common.annotations.VisibleForTesting;
 import org.ethereum.crypto.SHA3Helper;
 import org.ethereum.datasource.HashMapDB;
 import org.ethereum.util.RLP;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongycastle.pqc.math.linearalgebra.ByteUtils;
+import org.spongycastle.util.encoders.Hex;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.EOFException;
@@ -40,7 +44,7 @@ import static org.ethereum.crypto.SHA3Helper.sha3;
 import static org.ethereum.util.ByteUtil.EMPTY_BYTE_ARRAY;
 
 /**
- * Trie is the trie node.
+ * TrieImpl is the trie node.
  *
  * Each node have 2, 4 or 16 subnodes (depending on arity variable value)
  * and an optional associated value (a byte array)
@@ -56,17 +60,15 @@ import static org.ethereum.util.ByteUtil.EMPTY_BYTE_ARRAY;
  * An empty node has no subnodes and a null value
  *
  * Created by ajlopez on 22/08/2016.
- *
- * TODO(martin.medina): We shouldn't decode/encode the paths all the time. This makes multiple allocs and consumes CPU.
- * Avoiding that could bring performance gain.
- * 
  */
 public class TrieImpl implements Trie {
-    private static final Logger logger = LoggerFactory.getLogger("trie");
+    private static final Logger logger = LoggerFactory.getLogger("newtrie");
     private static final PanicProcessor panicProcessor = new PanicProcessor();
-    private static final String PANIC_TOPIC = "trie";
+    private static final String PANIC_TOPIC = "newtrie";
     private static final String INVALID_ARITY = "Invalid arity";
     private static final String ERROR_CREATING_TRIE = "Error creating trie from message";
+    private static final String ERROR_NON_EXISTENT_TRIE_LOGGER = "Error non existent trie with hash {}";
+    private static final String ERROR_NON_EXISTENT_TRIE = "Error non existent trie with hash ";
 
     private static final int MESSAGE_HEADER_LENGTH = 2 + Short.BYTES * 2;
     private static final int SERIALIZATION_HEADER_LENGTH = Short.BYTES * 2 + Integer.BYTES * 2;
@@ -135,8 +137,9 @@ public class TrieImpl implements Trie {
 
     // full constructor
     private TrieImpl(int arity, byte[] encodedSharedPath, int sharedPathLength, byte[] value, TrieImpl[] nodes, byte[][] hashes, TrieStore store) {
-        if (arity != 2 && arity != 4 && arity != 16)
+        if (arity != 2 && arity != 4 && arity != 16) {
             throw new IllegalArgumentException(INVALID_ARITY);
+        }
 
         this.arity = arity;
         this.value = value;
@@ -166,10 +169,13 @@ public class TrieImpl implements Trie {
 
     @Override
     public void removeNode(int position) {
-        if (this.nodes != null)
+        if (this.nodes != null) {
             this.nodes[position] = null;
-        if (this.hashes != null)
+        }
+
+        if (this.hashes != null) {
             this.hashes[position] = null;
+        }
     }
 
     @Override
@@ -182,7 +188,7 @@ public class TrieImpl implements Trie {
     }
 
     /**
-     * Factory method, to create a Trie from a serialized message
+     * Factory method, to create a NewTrie from a serialized message
      * the store argument is used to retrieve any subnode
      * of the subnode
      *
@@ -190,22 +196,26 @@ public class TrieImpl implements Trie {
      * @param store     the store containing the rest of the trie nodes, to be used on retrieve them if they are needed in memory
      */
     public static TrieImpl fromMessage(byte[] message, TrieStore store) {
-        if (message == null)
+        if (message == null) {
             return null;
+        }
 
         return fromMessage(message, 0, message.length, store);
     }
 
     private static TrieImpl fromMessage(byte[] message, int position, int msglength, TrieStore store) {
-        if (message == null)
+        if (message == null) {
             return null;
+        }
 
         ByteArrayInputStream bstream = new ByteArrayInputStream(message, position, msglength);
         DataInputStream istream = new DataInputStream(bstream);
 
         try {
             int arity = istream.readByte();
-            boolean isSecure = istream.readByte() == 1;
+            int flags = istream.readByte();
+            boolean isSecure = (flags & 0x01) == 1;
+            boolean hasLongVal = (flags & 0x02) == 2;
             int bhashes = istream.readShort();
             int lshared = istream.readShort();
 
@@ -216,37 +226,55 @@ public class TrieImpl implements Trie {
 
             if (lencoded > 0) {
                 encodedSharedPath = new byte[lencoded];
-                if (istream.read(encodedSharedPath) != lencoded)
+                if (istream.read(encodedSharedPath) != lencoded) {
                     throw new EOFException();
+                }
             }
 
             byte[][] hashes = new byte[arity][];
 
             for (int k = 0; k < arity; k++) {
-                if ((bhashes & (1 << k)) == 0)
+                if ((bhashes & (1 << k)) == 0) {
                     continue;
+                }
+
                 hashes[k] = new byte[SHA3Helper.DEFAULT_SIZE_BYTES];
 
-                if (istream.read(hashes[k]) != SHA3Helper.DEFAULT_SIZE_BYTES)
+                if (istream.read(hashes[k]) != SHA3Helper.DEFAULT_SIZE_BYTES) {
                     throw new EOFException();
+                }
 
                 nhashes++;
             }
 
             int offset = MESSAGE_HEADER_LENGTH + lencoded + nhashes * SHA3Helper.DEFAULT_SIZE_BYTES;
-            int lvalue = msglength - offset;
             byte[] value = null;
 
-            if (lvalue > 0) {
-                value = new byte[lvalue];
-                if (istream.read(value) != lvalue)
+            if (hasLongVal) {
+                byte[] valueHash = new byte[SHA3Helper.DEFAULT_SIZE_BYTES];
+
+                if (istream.read(valueHash) != SHA3Helper.DEFAULT_SIZE_BYTES) {
                     throw new EOFException();
+                }
+
+                value = store.retrieveValue(valueHash);
+            }
+            else {
+                int lvalue = msglength - offset;
+
+                if (lvalue > 0) {
+                    value = new byte[lvalue];
+                    if (istream.read(value) != lvalue) {
+                        throw new EOFException();
+                    }
+                }
             }
 
             TrieImpl trie = new TrieImpl(arity, encodedSharedPath, lshared, value, null, hashes, store).withSecure(isSecure);
 
-            if (store != null)
+            if (store != null) {
                 trie.saved = true;
+            }
 
             return trie;
         } catch (IOException ex) {
@@ -269,17 +297,25 @@ public class TrieImpl implements Trie {
     /**
      * getHash calculates and/or returns the hash associated with this node content
      *
-     * the internal variable hash could contains the cached hash
+     * the internal variable hash could contains the cached hash.
+     *
+     * This method is not synchronized because the result of it's execution
+     *
+     * disregarding the lazy initialization is idempotent. It's better to keep
+     *
+     * it out of synchronized.
      *
      * @return  a byte array with the node serialized to bytes
      */
     @Override
     public byte[] getHash() {
-        if (this.hash != null)
+        if (this.hash != null) {
             return ByteUtils.clone(this.hash);
+        }
 
-        if (isEmptyTrie(this.value, this.nodes, this.hashes))
+        if (isEmptyTrie(this.value, this.nodes, this.hashes)) {
             return ByteUtils.clone(emptyHash);
+        }
 
         byte[] message = this.toMessage();
 
@@ -304,36 +340,41 @@ public class TrieImpl implements Trie {
     @Override
     public PartialMerkleTree getPartialMerkleTree(byte[] key) {
         byte[] keyBytes = this.isSecure ? bytesToKey(sha3(key), this.arity) : bytesToKey(key, this.arity);
-
         return getPartialMerkleTree(keyBytes, keyBytes.length, 0);
     }
 
     private PartialMerkleTree getPartialMerkleTree(byte[] key, int length, int keyPosition) {
         int position = keyPosition;
 
-        if (position >= length)
+        if (position >= length) {
             return new PartialMerkleTree(this);
+        }
 
         if (this.encodedSharedPath != null) {
-            byte[] sharedPath = PathEncoder.decode(this.encodedSharedPath, this.arity, this.sharedPathLength);
+            byte[] sharedPath = decodePath(this.encodedSharedPath, this.arity, this.sharedPathLength);
 
             for (int k = 0; k < sharedPath.length; k++, position++) {
-                if (position >= length)
+                if (position >= length) {
                     return null;
-                if (key[position] != sharedPath[k])
+                }
+
+                if (key[position] != sharedPath[k]) {
                     return null;
+                }
             }
 
-            if (position >= length)
+            if (position >= length) {
                 return new PartialMerkleTree(this);
+            }
         }
 
         int pos = key[position];
 
         Trie node = this.retrieveNode(pos);
 
-        if (node == null)
+        if (node == null) {
             return null;
+        }
 
         PartialMerkleTree tree = ((TrieImpl)node).getPartialMerkleTree(key, length, position + 1);
 
@@ -354,25 +395,19 @@ public class TrieImpl implements Trie {
     }
 
     /**
-     * put key value association, returning a new Trie
+     * put key value association, returning a new NewTrie
      *
      * @param key   key to be updated or created, a byte array
      * @param value value to associated to the key, a byte array
      *
-     * @return a new Trie node, the top node of the new tree having the
+     * @return a new NewTrie node, the top node of the new tree having the
      * key-value association. The original node is immutable, a new tree
      * is build, adding some new nodes
      */
     @Override
     public Trie put(byte[] key, byte[] value) {
         byte[] keyBytes = this.isSecure ? bytesToKey(sha3(key), this.arity) : bytesToKey(key, this.arity);
-
-        TriePutResult putResult = put(keyBytes, keyBytes.length, 0, value);
-        Trie trie = putResult.getTrie();
-
-        if (ResultAction.DELETE == putResult.getAction()) {
-            trie = this.buildNewTrieAfterDelete(this, this, putResult);
-        }
+        Trie trie = put(keyBytes, keyBytes.length, 0, value);
 
         return trie == null ? new TrieImpl(this.arity, this.store, this.isSecure) : trie;
     }
@@ -384,7 +419,7 @@ public class TrieImpl implements Trie {
      * @param key   a string
      * @param value an associated value, a byte array
      *
-     * @return  a new Trie, the top node of a new trie having the key
+     * @return  a new NewTrie, the top node of a new trie having the key
      * value association
      */
     @Override
@@ -393,9 +428,9 @@ public class TrieImpl implements Trie {
     }
 
     /**
-     * delete update the key to null value and compress if necessary
+     * delete update the key to null value
      *
-     * @param key a byte array
+     * @param key   a byte array
      *
      * @return the new top node of the trie with the association removed
      *
@@ -433,43 +468,61 @@ public class TrieImpl implements Trie {
     @Override
     public byte[] toMessage() {
         int lvalue = this.value == null ? 0 : this.value.length;
-        int nnodes = this.getNumberOfChildren();
+        int nnodes = this.getNodeCount();
         int lshared = this.sharedPathLength;
         int lencoded = getEncodedPathLength(lshared, this.arity);
+        boolean hasLongVal = this.hasLongValue();
 
         int bits = 0;
 
         for (int k = 0; k < this.arity; k++) {
             byte[] nodeHash = this.getHash(k);
 
-            if (nodeHash == null)
+            if (nodeHash == null) {
                 continue;
+            }
 
             bits |= 1 << k;
         }
 
-        ByteBuffer buffer = ByteBuffer.allocate(MESSAGE_HEADER_LENGTH + lencoded + nnodes * SHA3Helper.DEFAULT_SIZE_BYTES + lvalue);
+        ByteBuffer buffer = ByteBuffer.allocate(MESSAGE_HEADER_LENGTH + lencoded + nnodes * SHA3Helper.DEFAULT_SIZE_BYTES + (hasLongVal ? SHA3Helper.DEFAULT_SIZE_BYTES : lvalue));
 
         buffer.put((byte) this.arity);
-        buffer.put((byte) (this.isSecure ? 1 : 0));
+
+        byte flags = 0;
+
+        if (this.isSecure)
+            flags |= 1;
+
+        if (hasLongVal)
+            flags |= 2;
+
+        buffer.put(flags);
         buffer.putShort((short) bits);
         buffer.putShort((short) lshared);
 
-        if (lshared > 0)
+        if (lshared > 0) {
             buffer.put(encodedSharedPath);
-
+        }
 
         for (int k = 0; k < this.arity; k++) {
             byte[] nodeHash = this.getHash(k);
 
-            if (nodeHash == null)
+            if (nodeHash == null) {
                 continue;
+            }
 
             buffer.put(nodeHash);
         }
 
-        if (lvalue > 0)
-            buffer.put(this.value);
+        if (lvalue > 0) {
+            if (hasLongVal) {
+                buffer.put(this.getValueHash());
+            }
+            else {
+                buffer.put(this.value);
+            }
+        }
 
         return buffer.array();
     }
@@ -480,13 +533,17 @@ public class TrieImpl implements Trie {
      */
     @Override
     public void save() {
-        if (this.saved)
+        if (this.saved) {
             return;
+        }
 
-        if (this.nodes != null)
-            for (TrieImpl node : this.nodes)
-                if (node != null)
+        if (this.nodes != null) {
+            for (TrieImpl node : this.nodes) {
+                if (node != null) {
                     node.save();
+                }
+            }
+        }
 
         this.store.save(this);
         this.saved = true;
@@ -504,8 +561,9 @@ public class TrieImpl implements Trie {
         for (int k = 0; k < this.arity; k++) {
             Trie node = this.retrieveNode(k);
 
-            if (node != null)
+            if (node != null) {
                 size += node.trieSize();
+            }
         }
 
         return size;
@@ -521,52 +579,59 @@ public class TrieImpl implements Trie {
      * @return the associated value, null if the key is not found
      *
      */
+    @Nullable
     private byte[] get(byte[] key, int length, int keyPosition) {
         int position = keyPosition;
 
-        if (position >= length)
+        if (position >= length) {
             return this.value;
+        }
 
         if (this.encodedSharedPath != null) {
-            byte[] sharedPath = PathEncoder.decode(this.encodedSharedPath, this.arity, this.sharedPathLength);
+            byte[] sharedPath = decodePath(this.encodedSharedPath, this.arity, this.sharedPathLength);
 
             for (int k = 0; k < sharedPath.length; k++, position++) {
-                if (position >= length)
+                if (position >= length) {
                     return null;
+                }
 
-                if (key[position] != sharedPath[k])
+                if (key[position] != sharedPath[k]) {
                     return null;
+                }
             }
 
-            if (position >= length)
+            if (position >= length) {
                 return this.value;
+            }
         }
 
         Trie node = this.retrieveNode(key[position]);
 
-        if (node == null)
+        if (node == null) {
             return null;
+        }
 
         return ((TrieImpl)node).get(key, length, position + 1);
     }
 
     /**
-     * getNumberOfChildren the number of direct subnodes in this node
+     * getNodeCount the number of direct subnodes in this node
      *
      * @return the number of direct subnodes in this node
      *
      * Takes into account that a node could be not present as an object and
      * only be referenced via its unique hash
      */
-    private int getNumberOfChildren() {
+    private int getNodeCount() {
         int count = 0;
 
         for (int k = 0; k < this.arity; k++) {
             TrieImpl node = this.getNode(k);
             byte[] localHash = this.getHash(k);
 
-            if (node != null && !isEmptyTrie(node.value, node.nodes, node.hashes) || localHash != null)
+            if (node != null && !isEmptyTrie(node.value, node.nodes, node.hashes) || localHash != null) {
                 count++;
+            }
         }
 
         return count;
@@ -583,24 +648,32 @@ public class TrieImpl implements Trie {
     private Trie retrieveNode(int n) {
         Trie node = this.getNode(n);
 
-        if (node != null)
+        if (node != null) {
             return node;
+        }
 
-        if (this.hashes == null)
+        if (this.hashes == null) {
             return null;
+        }
 
         byte[] localHash = this.hashes[n];
 
-        if (localHash == null)
+        if (localHash == null) {
             return null;
+        }
 
         node = this.store.retrieve(localHash);
 
-        if (node == null)
-            return null;
+        if (node == null) {
+            String strHash = Hex.toHexString(localHash);
+            logger.error(ERROR_NON_EXISTENT_TRIE_LOGGER, strHash);
+            panicProcessor.panic(PANIC_TOPIC, ERROR_NON_EXISTENT_TRIE + " " + strHash);
+            throw new TrieSerializationException(ERROR_NON_EXISTENT_TRIE + " " + strHash, null);
+        }
 
-        if (this.nodes == null)
+        if (this.nodes == null) {
             this.nodes = new TrieImpl[this.arity];
+        }
 
         this.nodes[n] = (TrieImpl)node;
 
@@ -615,17 +688,21 @@ public class TrieImpl implements Trie {
      *
      * @return  node hash or null if no node is present
      */
+    @Nullable
     private byte[] getHash(int n) {
-        if (this.hashes != null && this.hashes[n] != null)
+        if (this.hashes != null && this.hashes[n] != null) {
             return this.hashes[n];
+        }
 
-        if (this.nodes == null || this.nodes[n] == null)
+        if (this.nodes == null || this.nodes[n] == null) {
             return null;
+        }
 
         TrieImpl node = this.nodes[n];
 
-        if (isEmptyTrie(node.value, node.nodes, node.hashes))
+        if (isEmptyTrie(node.value, node.nodes, node.hashes)) {
             return null;
+        }
 
         byte[] localHash = node.getHash();
 
@@ -642,8 +719,9 @@ public class TrieImpl implements Trie {
      */
     @Override
     public void setHash(int n, byte[] hash) {
-        if (this.hashes == null)
+        if (this.hashes == null) {
             this.hashes = new byte[this.arity][];
+        }
 
         this.hashes[n] = hash;
     }
@@ -654,7 +732,6 @@ public class TrieImpl implements Trie {
      *
      * @return full trie serialized as byte array
      */
-    @Override
     public byte[] serialize() {
         this.save();
 
@@ -678,14 +755,16 @@ public class TrieImpl implements Trie {
         for (int k = 0; k < this.arity; k++) {
             TrieImpl subnode = this.getNode(k);
 
-            if (subnode != null)
+            if (subnode != null) {
                 subnodes.add(subnode.serializeTrie());
+            }
         }
 
         int totalSize = message.length;
 
-        for (byte[] sn : subnodes)
+        for (byte[] sn : subnodes) {
             totalSize += sn.length;
+        }
 
         ByteBuffer buffer = ByteBuffer.allocate(SERIALIZATION_HEADER_LENGTH + totalSize);
 
@@ -696,14 +775,15 @@ public class TrieImpl implements Trie {
 
         buffer.put(message);
 
-        for (byte[] sn : subnodes)
+        for (byte[] sn : subnodes) {
             buffer.put(sn);
+        }
 
         return buffer.array();
     }
 
     /**
-     * deserialize returns a TrieImpl, from its serialized bytes
+     * deserialize returns a NewTrieImpl, from its serialized bytes
      *
      * @return full trie deserialized from byte array
      */
@@ -716,18 +796,28 @@ public class TrieImpl implements Trie {
 
             byte[] root = new byte[SHA3Helper.DEFAULT_SIZE_BYTES];
 
-            if (dstream.read(root) != SHA3Helper.DEFAULT_SIZE_BYTES)
+            if (dstream.read(root) != SHA3Helper.DEFAULT_SIZE_BYTES) {
                 throw new EOFException();
+            }
 
             TrieStoreImpl store = TrieStoreImpl.deserialize(bytes, Short.BYTES + SHA3Helper.DEFAULT_SIZE_BYTES, bytes.length - Short.BYTES - SHA3Helper.DEFAULT_SIZE_BYTES, new HashMapDB());
 
-            return store.retrieve(root);
-        } catch (IOException ex) {
+            Trie newTrie = store.retrieve(root);
+
+            if (newTrie == null) {
+                String strHash = Hex.toHexString(root);
+                logger.error(ERROR_NON_EXISTENT_TRIE_LOGGER, strHash);
+                panicProcessor.panic(PANIC_TOPIC, ERROR_CREATING_TRIE + " " + strHash);
+                throw new TrieSerializationException(ERROR_CREATING_TRIE + " " + strHash, null);
+            }
+
+            return newTrie;
+        }
+        catch (IOException ex) {
             logger.error(ERROR_CREATING_TRIE, ex);
             panicProcessor.panic(PANIC_TOPIC, ERROR_CREATING_TRIE +": " + ex.getMessage());
             throw new TrieSerializationException(ERROR_CREATING_TRIE, ex);
         }
-
     }
 
     public static TrieImpl deserializeTrie(byte[] bytes) {
@@ -751,16 +841,19 @@ public class TrieImpl implements Trie {
 
             TrieImpl trie = fromMessage(bytes, messageOffset, messageLength, null);
 
-            if (trie == null)
+            if (trie == null) {
                 throw new NullPointerException();
+            }
 
             if (nsubnodes > 0) {
                 deserializeSubnodes(bytes, messageLength, messageOffset, trie);
             }
+
             return trie;
-        } catch (IOException ex) {
+        }
+        catch (IOException ex) {
             logger.error(ERROR_CREATING_TRIE, ex);
-            panicProcessor.panic(PANIC_TOPIC, ERROR_CREATING_TRIE + ": " + ex.getMessage());
+            panicProcessor.panic(PANIC_TOPIC, ERROR_CREATING_TRIE +": " + ex.getMessage());
             throw new TrieSerializationException(ERROR_CREATING_TRIE, ex);
         }
     }
@@ -768,12 +861,14 @@ public class TrieImpl implements Trie {
     private static void deserializeSubnodes(byte[] bytes, int messageLength, int messageOffset, TrieImpl trie) {
         int subnodeOffset = messageOffset + messageLength;
 
-        if (trie.nodes == null)
+        if (trie.nodes == null) {
             trie.nodes = new TrieImpl[trie.arity];
+        }
 
         for (int k = 0; k < trie.arity; k++) {
-            if (trie.hashes[k] == null)
+            if (trie.hashes[k] == null) {
                 continue;
+            }
 
             int subnodeLength = getSerializedNodeLength(bytes, subnodeOffset);
 
@@ -808,57 +903,114 @@ public class TrieImpl implements Trie {
      * @return
      */
     private TrieImpl getNode(int n) {
-        if (this.nodes == null)
+        if (this.nodes == null) {
             return null;
+        }
 
         return this.nodes[n];
     }
 
     /**
-     * put key with associated value, returning a new Trie
+     * put key with associated value, returning a new NewTrie
      *
      * @param key   key to be updated
      * @param length    total length of key
      * @param keyPosition  current position of the key to be processed
      * @param value     associated value
      *
-     * @return an object to indicate the result, it can be a put or a delete. That object also has some info
-     *         to finish the last step of recursion at the caller.
+     * @return the new NewTrie containing the tree with the new key value association
      *
      */
-    private TriePutResult put(byte[] key, int length, int keyPosition, byte[] value) {
+    private TrieImpl put(byte[] key, int length, int keyPosition, byte[] value) {
+        TrieImpl trie = this.internalPut(key, length, keyPosition, value);
+
+        // the following code coalesces nodes if needed for delete operation
+
+        // it's null or it is not a delete operation
+        if (trie == null || value != null) {
+            return trie;
+        }
+
+        if (isEmptyTrie(trie.value, trie.nodes, trie.hashes)) {
+            return null;
+        }
+
+        // only coalesce if node has only one child and no value
+        if (trie.value != null || trie.getNodeCount() !=1) {
+            return trie;
+        }
+
+        TrieImpl firstChild = null;
+        int firstChildPosition = 0;
+
+        for (int k = 0; firstChild == null && k < trie.arity; k++) {
+            firstChildPosition = k;
+            firstChild = (TrieImpl)trie.retrieveNode(k);
+        }
+
+        if (firstChild == null) {
+            throw new NullPointerException();
+        }
+
+        byte[] trieSharedPath;
+        byte[] positionPath = new byte[] { (byte) firstChildPosition };
+
+        if (trie.sharedPathLength == 0) {
+            trieSharedPath = positionPath;
+        }
+        else {
+            trieSharedPath = ByteUtils.concatenate(decodePath(trie.encodedSharedPath, trie.arity, trie.sharedPathLength), positionPath);
+        }
+
+        byte[] newSharedPath;
+
+        if (firstChild.sharedPathLength == 0) {
+            newSharedPath = trieSharedPath;
+        }
+        else {
+            byte[] childSharedPath = decodePath(firstChild.encodedSharedPath, firstChild.arity, firstChild.sharedPathLength);
+            newSharedPath = ByteUtils.concatenate(trieSharedPath, childSharedPath);
+        }
+
+        TrieImpl newTrie = (TrieImpl)firstChild.cloneTrie();
+        newTrie.sharedPathLength = newSharedPath.length;
+        newTrie.encodedSharedPath = encodePath(newSharedPath, firstChild.arity);
+
+        return newTrie;
+    }
+
+    private TrieImpl internalPut(byte[] key, int length, int keyPosition, byte[] value) {
         int position = keyPosition;
 
         if (this.encodedSharedPath != null) {
-            byte[] sharedPath = PathEncoder.decode(this.encodedSharedPath, this.arity, this.sharedPathLength);
+            byte[] sharedPath = decodePath(this.encodedSharedPath, this.arity, this.sharedPathLength);
 
             int k = lengthOfCommonPath(key, length, keyPosition, sharedPath);
 
-            if (k >= sharedPath.length)
+            if (k >= sharedPath.length) {
                 position += sharedPath.length;
-            else
+            }
+            else {
                 return this.split(k).put(key, length, position, value);
+            }
         }
 
         if (position >= length) {
             TrieImpl[] newNodes = cloneNodes(false);
             byte[][] newHashes = cloneHashes();
 
-            boolean isDeleteOperation = value == null;
-            if (isDeleteOperation)
-                return new TriePutResult(ResultAction.KEY_TO_DELETE_FOUND, this.getNumberOfChildren());
+            if (isEmptyTrie(value, newNodes, newHashes)) {
+                return null;
+            }
 
-            TrieImpl trieToReturn = new TrieImpl(this.arity, this.encodedSharedPath, this.sharedPathLength, value, newNodes, newHashes, this.store).withSecure(this.isSecure);
-            return new TriePutResult(ResultAction.PUT, trieToReturn);
+            return new TrieImpl(this.arity, this.encodedSharedPath, this.sharedPathLength, value, newNodes, newHashes, this.store).withSecure(this.isSecure);
         }
 
         if (isEmptyTrie(this.value, this.nodes, this.hashes)) {
             int lshared = length - position;
             byte[] shared = new byte[lshared];
             System.arraycopy(key, position, shared, 0, lshared);
-            TrieImpl trieToReturn = new TrieImpl(this.arity, this.store, PathEncoder.encode(shared, this.arity), lshared, value, this.isSecure);
-
-            return new TriePutResult(ResultAction.PUT, trieToReturn);
+            return new TrieImpl(this.arity, this.store, encodePath(shared, this.arity), lshared, value, this.isSecure);
         }
 
         TrieImpl[] newNodes = cloneNodes(true);
@@ -868,178 +1020,67 @@ public class TrieImpl implements Trie {
 
         TrieImpl node = (TrieImpl)retrieveNode(pos);
 
-        if (node == null)
+        if (node == null) {
             node = new TrieImpl(this.arity, this.store, this.isSecure);
-
-        // do recursion to continue adding the new key or searching for the key to delete.
-        TriePutResult putResult = node.put(key, length, position + 1, value);
-
-        if(ResultAction.KEY_TO_DELETE_FOUND == putResult.getAction()) {
-            // tell my parent that he needs to delete me
-            return new TriePutResult(ResultAction.DELETE, pos, putResult.sonToDeleteNumberOfSons());
         }
 
-        newNodes[pos] = this.buildNewSonTrie(this, pos, putResult, newNodes[pos]);
+        node = node.put(key, length, position + 1, value);
 
-        if (newHashes != null)
+        newNodes[pos] = node;
+
+        if (newHashes != null) {
             newHashes[pos] = null;
-
-        TrieImpl trieToReturn = new TrieImpl(this.arity, this.encodedSharedPath, this.sharedPathLength, this.value, newNodes, newHashes, this.store).withSecure(this.isSecure);
-
-        return new TriePutResult(ResultAction.PUT, trieToReturn);
-    }
-
-    private TrieImpl buildNewSonTrie(TrieImpl node, int pos, TriePutResult putResult, TrieImpl oldSon) {
-
-        if (ResultAction.PUT == putResult.getAction()) {
-            return putResult.getTrie();
         }
 
-        if (ResultAction.DELETE == putResult.getAction()) {
-            return this.buildNewTrieAfterDelete(node, node.nodes[pos], putResult);
+        if (isEmptyTrie(value, newNodes, newHashes)) {
+            return null;
         }
 
-        return oldSon;
-    }
-
-    private TrieImpl buildNewTrieAfterDelete(TrieImpl grandParent, TrieImpl parent, TriePutResult putResult) {
-
-        TrieImpl newTrie;
-
-        if(putResult.sonToDeleteNumberOfSons() == 0) {
-            // a leaf will be deleted
-            if (grandParent.getNumberOfChildren() == 2) {
-                // leaf to be deleted has one sibling. As a consequence, there is no need
-                // for a bifurcation at this level so the parent is merged with the survivor son.
-                newTrie = grandParent.deleteSonAndCompress(parent, putResult.getSonToDelete());
-            } else {
-                // one or more than two sons remain, delete and that's it.
-                newTrie = null;
-            }
-        } else {
-            // a node that is not a leaf will be deleted
-            if (putResult.sonToDeleteNumberOfSons() == 1) {
-                // node to be deleted has only one son so compression needs to be done.
-                newTrie = grandParent.deleteSonAndCompressOnlyOneSon(parent, putResult.getSonToDelete());
-            } else {
-                // node to be deleted has more than one son, value must be set to null.
-                newTrie = new TrieImpl(grandParent.arity, grandParent.encodedSharedPath, grandParent.sharedPathLength, null, grandParent.nodes, null, grandParent.store).withSecure(grandParent.isSecure);
-            }
-        }
-
-        return newTrie;
+        return new TrieImpl(this.arity, this.encodedSharedPath, this.sharedPathLength, this.value, newNodes, newHashes, this.store).withSecure(this.isSecure);
     }
 
     private int lengthOfCommonPath(byte[] key, int length, int position, byte[] sharedPath) {
         int k;
 
         for (k = 0; k < sharedPath.length && position + k < length; k++) {
-            if (sharedPath[k] != key[position + k])
+            if (sharedPath[k] != key[position + k]) {
                 break;
+            }
         }
 
         return k;
     }
 
-    /**
-     * Used when 'this' needs to be split because a new key is been inserted.
-     * This new key can be a prefix of the one the node has now or vice versa
-     * @param sharedBitsBetweenKeys number of shared bits between the new key and the one the node has now.
-     * @return a new Trie which is 'this' with its key split by sharedBitsBetweenKeys
-     */
-    private TrieImpl split(int sharedBitsBetweenKeys) {
-        // create a new child trie to store 'this' current value
+    private TrieImpl split(int nshared) {
         TrieImpl[] newChildNodes = this.cloneNodes(false);
         byte[][] newChildHashes = this.cloneHashes();
+
         TrieImpl newChildTrie = new TrieImpl(this.arity, null, 0, this.value, newChildNodes, newChildHashes, this.store).withSecure(this.isSecure);
 
-        // set shared path for child
-        byte[] sharedPath = PathEncoder.decode(this.encodedSharedPath, this.arity, this.sharedPathLength);
-        boolean isNewKeyPrefix = sharedPath.length > sharedBitsBetweenKeys + 1;
-        if (isNewKeyPrefix) {
-            // new child trie shared path = the bits that are not shared between keys
-            int newSharedLength = sharedPath.length - sharedBitsBetweenKeys - 1;
-            this.setSharedPath(newChildTrie, sharedBitsBetweenKeys + 1, sharedPath, newSharedLength);
+        byte[] sharedPath = decodePath(this.encodedSharedPath, this.arity, this.sharedPathLength);
+
+        if (sharedPath.length > nshared + 1) {
+            int newSharedLength = sharedPath.length - nshared - 1;
+            byte[] newShared = new byte[newSharedLength];
+            System.arraycopy(sharedPath, nshared + 1, newShared, 0, newSharedLength);
+            newChildTrie.encodedSharedPath = encodePath(newShared, this.arity);
+            newChildTrie.sharedPathLength = newSharedLength;
         }
 
-        // create a new parent for the recently built child
         TrieImpl newTrie = new TrieImpl(this.arity, this.store, this.isSecure);
         TrieImpl[] newNodes = new TrieImpl[this.arity];
-        int pos = sharedPath[sharedBitsBetweenKeys];
+        int pos = sharedPath[nshared];
         newNodes[pos] = newChildTrie;
         newTrie.nodes = newNodes;
 
-        // set shared path for parent
-        if (sharedBitsBetweenKeys > 0) {
-            this.setSharedPath(newTrie, 0, sharedPath, sharedBitsBetweenKeys);
+        if (nshared > 0) {
+            byte[] newSharedPath = new byte[nshared];
+            System.arraycopy(sharedPath, 0, newSharedPath, 0, nshared);
+            newTrie.encodedSharedPath = encodePath(newSharedPath, this.arity);
+            newTrie.sharedPathLength = nshared;
         }
 
         return newTrie;
-    }
-
-    private void setSharedPath(TrieImpl newChildTrie, int pos, byte[] sharedPath, int newSharedLength) {
-        byte[] newShared = new byte[newSharedLength];
-        System.arraycopy(sharedPath, pos, newShared, 0, newSharedLength);
-        newChildTrie.encodedSharedPath = PathEncoder.encode(newShared, this.arity);
-        newChildTrie.sharedPathLength = newSharedLength;
-    }
-
-    private TrieImpl deleteSonAndCompressOnlyOneSon(TrieImpl parent, int sonToDeletePos) {
-
-        TrieImpl sonToDelete = parent.nodes[sonToDeletePos];
-
-        // search for the son that is not going to be deleted
-        int grandSonToKeepPos = 0;
-        for(int i = 0; i < sonToDelete.nodes.length; i++) {
-            if(sonToDelete.nodes[i] != null) {
-                grandSonToKeepPos = i;
-            }
-        }
-        TrieImpl grandSonToKeep = sonToDelete.nodes[grandSonToKeepPos];
-
-        // get prefix and suffix to compress
-        byte[] decodedPrefix = sonToDelete.sharedPathLength == 0 ? new byte[] {} : PathEncoder.decode(sonToDelete.encodedSharedPath, sonToDelete.arity, sonToDelete.sharedPathLength);
-        byte[] decodedSuffix = grandSonToKeep.sharedPathLength == 0 ? new byte[] {} : PathEncoder.decode(grandSonToKeep.encodedSharedPath, grandSonToKeep.arity, grandSonToKeep.sharedPathLength);
-        byte[] newDecode = new byte[decodedPrefix.length + 1 + decodedSuffix.length];
-
-        // build new shared path because of compression action
-        System.arraycopy(decodedPrefix, 0, newDecode, 0, decodedPrefix.length);
-        newDecode[decodedPrefix.length] = (byte)grandSonToKeepPos;
-        System.arraycopy(decodedSuffix, 0, newDecode, decodedPrefix.length + 1, decodedSuffix.length);
-        byte[] newEncode = PathEncoder.encode(newDecode, sonToDelete.arity);
-
-        TrieImpl[] newNodes = this.cloneNodes(grandSonToKeep, false);
-        byte[][] newHashes = this.cloneHashes(grandSonToKeep);
-        TrieImpl newSon = new TrieImpl(grandSonToKeep.arity, newEncode, decodedPrefix.length + 1 + decodedSuffix.length, grandSonToKeep.value, newNodes, newHashes, grandSonToKeep.store).withSecure(grandSonToKeep.isSecure);
-        TrieImpl[] newParentSons = this.cloneNodesNullSafe(parent);
-        newParentSons[sonToDeletePos] = newSon;
-
-        return new TrieImpl(parent.arity, parent.encodedSharedPath, parent.sharedPathLength, parent.value, newParentSons, null, parent.store).withSecure(parent.isSecure);
-    }
-
-    private TrieImpl deleteSonAndCompress(TrieImpl parentToReplace, int sonToDelete) {
-
-        // search for the son that is not going to be deleted
-        int sonToKeepPos = 0;
-        for(int i = 0; i < parentToReplace.nodes.length; i++) {
-            if(parentToReplace.nodes[i] != null && i != sonToDelete) {
-                sonToKeepPos = i;
-            }
-        }
-        TrieImpl sonToKeep = parentToReplace.nodes[sonToKeepPos];
-
-        // get prefix and suffix to compress
-        byte[] decodedPrefix = parentToReplace.sharedPathLength == 0 ? new byte[] {} : PathEncoder.decode(parentToReplace.encodedSharedPath, parentToReplace.arity, parentToReplace.sharedPathLength);
-        byte[] decodedSuffix = sonToKeep.sharedPathLength == 0 ? new byte[] {} : PathEncoder.decode(sonToKeep.encodedSharedPath, sonToKeep.arity, sonToKeep.sharedPathLength);
-        byte[] newDecode = new byte[decodedPrefix.length + 1 + decodedSuffix.length];
-
-        // build new shared path because of compression action
-        System.arraycopy(decodedPrefix, 0, newDecode, 0, decodedPrefix.length);
-        newDecode[decodedPrefix.length] = (byte)sonToKeepPos;
-        System.arraycopy(decodedSuffix, 0, newDecode, decodedPrefix.length + 1, decodedSuffix.length);
-        byte[] newEncode = PathEncoder.encode(newDecode, sonToKeep.arity);
-
-        return new TrieImpl(sonToKeep.arity, newEncode, decodedPrefix.length + 1 + decodedSuffix.length, sonToKeep.value, sonToKeep.nodes, sonToKeep.hashes, sonToKeep.store).withSecure(sonToKeep.isSecure);
     }
 
     /**
@@ -1047,18 +1088,18 @@ public class TrieImpl implements Trie {
      *
      * @return a copy of the original hashes
      */
+    @Nullable
     private byte[][] cloneHashes() {
-        return this.cloneHashes(this);
-    }
-
-    private byte[][] cloneHashes(TrieImpl nodeToClone) {
-        if (nodeToClone.hashes == null)
+        if (this.hashes == null) {
             return null;
+        }
 
-        int nhashes = nodeToClone.hashes.length;
+        int nhashes = this.hashes.length;
         byte[][] newHashes = new byte[nhashes][];
 
-        System.arraycopy(nodeToClone.hashes, 0, newHashes, 0, nhashes);
+        for (int k = 0; k < nhashes; k++) {
+            newHashes[k] = this.hashes[k];
+        }
 
         return newHashes;
     }
@@ -1070,25 +1111,21 @@ public class TrieImpl implements Trie {
      *
      * @return the new list of nodes
      */
+    @Nullable
     private TrieImpl[] cloneNodes(boolean create) {
-        return  this.cloneNodes(this, create);
-    }
-
-    private TrieImpl[] cloneNodes(TrieImpl nodeToClone, boolean create) {
-        if (nodeToClone.nodes == null && !create)
+        if (nodes == null && !create) {
             return null;
-
-        return this.cloneNodesNullSafe(nodeToClone);
-    }
-
-    private TrieImpl[] cloneNodesNullSafe(TrieImpl nodeToClone) {
-        TrieImpl[] newNodes = new TrieImpl[nodeToClone.arity];
-
-        if (nodeToClone.nodes != null) {
-            System.arraycopy(nodeToClone.nodes, 0, newNodes, 0, nodeToClone.arity);
         }
 
-        return newNodes;
+        TrieImpl[] newnodes = new TrieImpl[this.arity];
+
+        if (nodes != null) {
+            for (int k = 0; k < this.arity; k++) {
+                newnodes[k] = nodes[k];
+            }
+        }
+
+        return newnodes;
     }
 
     @Override
@@ -1106,19 +1143,24 @@ public class TrieImpl implements Trie {
      * @return true if no data
      */
     private static boolean isEmptyTrie(byte[] value, TrieImpl[] nodes, byte[][]hashes) {
-        if (value != null && value.length != 0)
+        if (value != null && value.length != 0) {
             return false;
+        }
 
         if (nodes != null) {
-            for (int k = 0; k < nodes.length; k++)
-                if (nodes[k] != null)
+            for (int k = 0; k < nodes.length; k++) {
+                if (nodes[k] != null) {
                     return false;
+                }
+            }
         }
 
         if (hashes != null) {
-            for (int k = 0; k < hashes.length; k++)
-                if (hashes[k] != null)
+            for (int k = 0; k < hashes.length; k++) {
+                if (hashes[k] != null) {
                     return false;
+                }
+            }
         }
 
         return true;
@@ -1145,8 +1187,7 @@ public class TrieImpl implements Trie {
             factor = 4;
             mask = 0x03;
             nbits = 2;
-        }
-        else if (arity == 16) {
+        } else if (arity == 16) {
             factor = 2;
             mask = 0x0f;
             nbits = 4;
@@ -1159,35 +1200,175 @@ public class TrieImpl implements Trie {
         for (int k = 0; k < l; k++) {
             byte b = bytes[k];
 
-            for (int i = 0; i < factor; i++)
+            for (int i = 0; i < factor; i++) {
                 keyBytes[j++] = (byte) ((b >> (nbits * (factor - i - 1))) & mask);
+            }
         }
 
         return keyBytes;
     }
 
-    @Override
     public Trie getSnapshotTo(byte[] hash) {
         this.save();
 
-        if (Arrays.equals(emptyHash, hash))
+        if (Arrays.equals(emptyHash, hash)) {
             return new TrieImpl(this.store, this.isSecure);
+        }
 
-        return this.store.retrieve(hash);
+        Trie newTrie = this.store.retrieve(hash);
+
+        if (newTrie == null) {
+            String strHash = Hex.toHexString(hash);
+            logger.error(ERROR_NON_EXISTENT_TRIE_LOGGER, strHash);
+            panicProcessor.panic(PANIC_TOPIC, ERROR_CREATING_TRIE + " " + strHash);
+            throw new TrieSerializationException(ERROR_CREATING_TRIE + " " + strHash, null);
+        }
+
+        return newTrie;
     }
 
     public TrieStore getStore() {
         return this.store;
     }
 
-    private static int getEncodedPathLength(int length, int arity) {
-        if (arity == 2)
-            return length / 8 + (length % 8 == 0 ? 0 : 1);
+    public boolean hasLongValue() {
+        return this.value != null && this.value.length > 32;
+    }
 
-        if (arity == 16)
+    public byte[] getValueHash() {
+        if (this.hasLongValue()) {
+            return sha3(this.value);
+        }
+
+        return null;
+    }
+
+    public byte[] getValue() { return this.value; }
+
+    private static int getEncodedPathLength(int length, int arity) {
+        if (arity == 2) {
+            return length / 8 + (length % 8 == 0 ? 0 : 1);
+        }
+
+        if (arity == 16) {
             return length / 2 + (length % 2 == 0 ? 0 : 1);
+        }
 
         return 0;
+    }
+
+    @VisibleForTesting
+    @Nonnull
+    public static byte[] encodePath(byte[] path, int arity) {
+        if (path == null) {
+            throw new IllegalArgumentException("path");
+        }
+
+        if (arity == 2) {
+            return encodeBinaryPath(path);
+        }
+
+        if (arity == 16) {
+            return encodeHexadecimalPath(path);
+        }
+
+        throw new IllegalArgumentException(INVALID_ARITY);
+    }
+
+    @VisibleForTesting
+    @Nonnull
+    public static byte[] decodePath(byte[] encoded, int arity, int length) {
+        if (encoded == null) {
+            throw new IllegalArgumentException("encoded");
+        }
+
+        if (arity == 2) {
+            return decodeBinaryPath(encoded, length);
+        }
+
+        if (arity == 16) {
+            return decodeHexadecimalPath(encoded, length);
+        }
+
+        throw new IllegalArgumentException(INVALID_ARITY);
+    }
+
+    @Nonnull
+    private static byte[] encodeBinaryPath(byte[] path) {
+        int lpath = path.length;
+        int lencoded = lpath / 8 + (lpath % 8 == 0 ? 0 : 1);
+
+        byte[] encoded = new byte[lencoded];
+        int nbyte = 0;
+
+        for (int k = 0; k < lpath; k++) {
+            int offset = k % 8;
+
+            if (k > 0 && offset == 0) {
+                nbyte++;
+            }
+
+            if (path[k] == 0) {
+                continue;
+            }
+
+            encoded[nbyte] |= 0x80 >> offset;
+        }
+
+        return encoded;
+    }
+
+    @Nonnull
+    private static byte[] decodeBinaryPath(byte[] encoded, int length) {
+        byte[] path = new byte[length];
+
+        for (int k = 0; k < length; k++) {
+            int nbyte = k / 8;
+            int offset = k % 8;
+
+            if (((encoded[nbyte] >> (7 - offset)) & 0x01) != 0) {
+                path[k] = 1;
+            }
+        }
+
+        return path;
+    }
+
+    private static byte[] encodeHexadecimalPath(byte[] path) {
+        int lpath = path.length;
+        int lencoded = lpath / 2 + (lpath % 2 == 0 ? 0 : 1);
+
+        byte[] encoded = new byte[lencoded];
+        int nbyte = 0;
+
+        for (int k = 0; k < lpath; k++) {
+            if (k > 0 && k % 2 == 0) {
+                nbyte++;
+            }
+
+            if (path[k] == 0) {
+                continue;
+            }
+
+            int offset = k % 2;
+            encoded[nbyte] |= (path[k] & 0x0f) << ((1 - offset) * 4);
+        }
+
+        return encoded;
+    }
+
+    private static byte[] decodeHexadecimalPath(byte[] encoded, int length) {
+        byte[] path = new byte[length];
+
+        for (int k = 0; k < length; k++) {
+            int nbyte = k / 2;
+            int offset = k % 2;
+
+            int value = (encoded[nbyte] >> ((1 - offset) * 4)) & 0x0f;
+            path[k] = (byte)value;
+        }
+
+        return path;
     }
 
     /**

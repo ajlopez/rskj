@@ -19,16 +19,19 @@
 
 package org.ethereum.config;
 
+import co.rsk.config.GasLimitConfig;
+import co.rsk.config.MiningConfig;
 import co.rsk.config.RskSystemProperties;
+import co.rsk.core.DifficultyCalculator;
 import co.rsk.core.NetworkStateExporter;
 import co.rsk.metrics.BlockHeaderElement;
 import co.rsk.metrics.HashRateCalculator;
-import co.rsk.metrics.HashRateCalculatorImpl;
+import co.rsk.metrics.HashRateCalculatorMining;
+import co.rsk.metrics.HashRateCalculatorNonMining;
 import co.rsk.net.discovery.PeerExplorer;
 import co.rsk.net.discovery.UDPServer;
 import co.rsk.net.discovery.table.KademliaOptions;
 import co.rsk.net.discovery.table.NodeDistanceTable;
-import co.rsk.util.AccountUtils;
 import co.rsk.util.RskCustomCache;
 import co.rsk.validators.*;
 import org.apache.commons.collections4.CollectionUtils;
@@ -38,8 +41,6 @@ import org.ethereum.datasource.KeyValueDataSource;
 import org.ethereum.datasource.LevelDbDataSource;
 import org.ethereum.db.*;
 import org.ethereum.net.rlpx.Node;
-import org.ethereum.solidity.compiler.SolidityCompiler;
-import org.ethereum.validator.ProofOfWorkRule;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.mapdb.Serializer;
@@ -50,7 +51,6 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Scope;
 
 import javax.annotation.PostConstruct;
 import java.io.File;
@@ -73,29 +73,24 @@ public class DefaultConfig {
     ApplicationContext appCtx;
 
     @Autowired
-    CommonConfig commonConfig;
-
-    @Autowired
     SystemProperties config;
 
     @PostConstruct
     public void init() {
-        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-            @Override
-            public void uncaughtException(Thread t, Throwable e) {
-                logger.error("Uncaught exception", e);
-            }
-        });
+        Thread.setDefaultUncaughtExceptionHandler((t, e) -> logger.error("Uncaught exception", e));
     }
 
     @Bean
     public BlockStore blockStore() {
         String database = config.databaseDir();
 
-        String blocksIndexFile = database + "/blocks/index";
-        File dbFile = new File(blocksIndexFile);
-        if (!dbFile.getParentFile().exists()) {
-            dbFile.getParentFile().mkdirs();
+        File blockIndexDirectory = new File(database + "/blocks/");
+        File dbFile = new File(blockIndexDirectory, "index");
+        if (!blockIndexDirectory.exists()) {
+            boolean mkdirsSuccess = blockIndexDirectory.mkdirs();
+            if (!mkdirsSuccess) {
+                logger.error("Unable to create blocks directory: {}", blockIndexDirectory);
+            }
         }
 
         DB indexDB = DBMaker.fileDB(dbFile)
@@ -108,7 +103,7 @@ public class DefaultConfig {
                 .counterEnable()
                 .makeOrGet();
 
-        KeyValueDataSource blocksDB = appCtx.getBean(LevelDbDataSource.class, "blocks");
+        KeyValueDataSource blocksDB = new LevelDbDataSource("blocks");
         blocksDB.init();
 
         IndexedBlockStore indexedBlockStore = new IndexedBlockStore();
@@ -119,28 +114,37 @@ public class DefaultConfig {
     }
 
     @Bean
-    @Scope("prototype")
-    LevelDbDataSource levelDbDataSource(String name) {
-        return new LevelDbDataSource(name);
-    }
-
-    @Bean
     public ReceiptStore receiptStore() {
-
         KeyValueDataSource ds = new LevelDbDataSource("receipts");
         ds.init();
-
-        ReceiptStore store = new ReceiptStoreImpl(ds);
-
-        return store;
+        return new ReceiptStoreImpl(ds);
     }
 
     @Bean
-    public HashRateCalculator hashRateCalculator() {
-        BlockStore blockStore = appCtx.getBean(BlockStore.class);
-        AccountUtils accountUtils = appCtx.getBean(AccountUtils.class);
-        RskCustomCache<ByteArrayWrapper, BlockHeaderElement> cache = new RskCustomCache<ByteArrayWrapper, BlockHeaderElement>(60000L);
-        return new HashRateCalculatorImpl(blockStore, accountUtils, cache);
+    public HashRateCalculator hashRateCalculator(RskSystemProperties rskSystemProperties, BlockStore blockStore, MiningConfig miningConfig) {
+        RskCustomCache<ByteArrayWrapper, BlockHeaderElement> cache = new RskCustomCache<>(60000L);
+        if (!rskSystemProperties.minerServerEnabled()) {
+            return new HashRateCalculatorNonMining(blockStore, cache);
+        }
+
+        return new HashRateCalculatorMining(blockStore, cache, miningConfig.getCoinbaseAddress());
+    }
+
+    @Bean
+    public MiningConfig miningConfig(RskSystemProperties rskSystemProperties) {
+        return new MiningConfig(
+                rskSystemProperties.coinbaseAddress(),
+                rskSystemProperties.minerMinFeesNotifyInDollars(),
+                rskSystemProperties.minerGasUnitInDollars(),
+                rskSystemProperties.minerMinGasPrice(),
+                rskSystemProperties.getBlockchainConfig().getCommonConstants().getUncleListLimit(),
+                rskSystemProperties.getBlockchainConfig().getCommonConstants().getUncleGenerationLimit(),
+                new GasLimitConfig(
+                        rskSystemProperties.getBlockchainConfig().getCommonConstants().getMinGasLimit(),
+                        rskSystemProperties.getTargetGasLimit(),
+                        rskSystemProperties.getForceTargetGasLimit()
+                )
+        );
     }
 
     @Bean
@@ -149,35 +153,42 @@ public class DefaultConfig {
     }
 
     @Bean
-    public BlockParentDependantValidationRule blockParentDependantValidationRule() {
-        Repository repository = appCtx.getBean(Repository.class);
+    public BlockParentDependantValidationRule blockParentDependantValidationRule(
+            Repository repository,
+            RskSystemProperties config,
+            DifficultyCalculator difficultyCalculator) {
         BlockTxsValidationRule blockTxsValidationRule = new BlockTxsValidationRule(repository);
+        BlockTxsFieldsValidationRule blockTxsFieldsValidationRule = new BlockTxsFieldsValidationRule();
         PrevMinGasPriceRule prevMinGasPriceRule = new PrevMinGasPriceRule();
         BlockParentNumberRule parentNumberRule = new BlockParentNumberRule();
-        BlockDifficultyRule difficultyRule = new BlockDifficultyRule();
-        BlockParentGasLimitRule parentGasLimitRule = new BlockParentGasLimitRule(RskSystemProperties.CONFIG.getBlockchainConfig().
+        BlockDifficultyRule difficultyRule = new BlockDifficultyRule(difficultyCalculator);
+        BlockParentGasLimitRule parentGasLimitRule = new BlockParentGasLimitRule(config.getBlockchainConfig().
                 getCommonConstants().getGasLimitBoundDivisor());
 
-        return new BlockParentCompositeRule(blockTxsValidationRule, prevMinGasPriceRule, parentNumberRule, difficultyRule, parentGasLimitRule);
+        return new BlockParentCompositeRule(blockTxsFieldsValidationRule, blockTxsValidationRule, prevMinGasPriceRule, parentNumberRule, difficultyRule, parentGasLimitRule);
     }
 
     @Bean(name = "blockValidationRule")
-    public BlockValidationRule blockValidationRule() {
-        BlockStore blockStore = appCtx.getBean(BlockStore.class);
-        int uncleListLimit = RskSystemProperties.CONFIG.getBlockchainConfig().getCommonConstants().getUncleListLimit();
-        int uncleGenLimit = RskSystemProperties.CONFIG.getBlockchainConfig().getCommonConstants().getUncleGenerationLimit();
-
-        BlockParentGasLimitRule parentGasLimitRule = new BlockParentGasLimitRule(RskSystemProperties.CONFIG.getBlockchainConfig().getCommonConstants().getGasLimitBoundDivisor());
-        BlockParentCompositeRule unclesBlockParentHeaderValidator = new BlockParentCompositeRule(new PrevMinGasPriceRule(), new BlockParentNumberRule(), new BlockDifficultyRule(), parentGasLimitRule);
-
-        int validPeriod = RskSystemProperties.CONFIG.getBlockchainConfig().getCommonConstants().getNewBlockMaxMinInTheFuture();
+    public BlockValidationRule blockValidationRule(
+            BlockStore blockStore,
+            RskSystemProperties config,
+            DifficultyCalculator difficultyCalculator,
+            ProofOfWorkRule proofOfWorkRule) {
+        Constants commonConstants = config.getBlockchainConfig().getCommonConstants();
+        int uncleListLimit = commonConstants.getUncleListLimit();
+        int uncleGenLimit = commonConstants.getUncleGenerationLimit();
+        int validPeriod = commonConstants.getNewBlockMaxSecondsInTheFuture();
         BlockTimeStampValidationRule blockTimeStampValidationRule = new BlockTimeStampValidationRule(validPeriod);
-        BlockCompositeRule unclesBlockHeaderValidator = new BlockCompositeRule(new ProofOfWorkRule(), blockTimeStampValidationRule, new ValidGasUsedRule());
+
+        BlockParentGasLimitRule parentGasLimitRule = new BlockParentGasLimitRule(commonConstants.getGasLimitBoundDivisor());
+        BlockParentCompositeRule unclesBlockParentHeaderValidator = new BlockParentCompositeRule(new PrevMinGasPriceRule(), new BlockParentNumberRule(), blockTimeStampValidationRule, new BlockDifficultyRule(difficultyCalculator), parentGasLimitRule);
+
+        BlockCompositeRule unclesBlockHeaderValidator = new BlockCompositeRule(proofOfWorkRule, blockTimeStampValidationRule, new ValidGasUsedRule());
 
         BlockUnclesValidationRule blockUnclesValidationRule = new BlockUnclesValidationRule(blockStore, uncleListLimit, uncleGenLimit, unclesBlockHeaderValidator, unclesBlockParentHeaderValidator);
 
-        int minGasLimit = RskSystemProperties.CONFIG.getBlockchainConfig().getCommonConstants().getMinGasLimit();
-        int maxExtraDataSize = RskSystemProperties.CONFIG.getBlockchainConfig().getCommonConstants().getMaximumExtraDataSize();
+        int minGasLimit = commonConstants.getMinGasLimit();
+        int maxExtraDataSize = commonConstants.getMaximumExtraDataSize();
 
         return new BlockCompositeRule(new TxsMinGasPriceRule(), blockUnclesValidationRule, new BlockRootValidationRule(), new RemascValidationRule(), blockTimeStampValidationRule, new GasLimitRule(minGasLimit), new ExtraDataRule(maxExtraDataSize));
     }
@@ -190,26 +201,29 @@ public class DefaultConfig {
 
 
     @Bean(name = "minerServerBlockValidation")
-    public BlockValidationRule minerServerBlockValidationRule() {
-        BlockStore blockStore = appCtx.getBean(BlockStore.class);
-        int uncleListLimit = RskSystemProperties.CONFIG.getBlockchainConfig().getCommonConstants().getUncleListLimit();
-        int uncleGenLimit = RskSystemProperties.CONFIG.getBlockchainConfig().getCommonConstants().getUncleGenerationLimit();
+    public BlockValidationRule minerServerBlockValidationRule(
+            BlockStore blockStore,
+            RskSystemProperties config,
+            DifficultyCalculator difficultyCalculator,
+            ProofOfWorkRule proofOfWorkRule) {
+        Constants commonConstants = config.getBlockchainConfig().getCommonConstants();
+        int uncleListLimit = commonConstants.getUncleListLimit();
+        int uncleGenLimit = commonConstants.getUncleGenerationLimit();
 
-        BlockParentGasLimitRule parentGasLimitRule = new BlockParentGasLimitRule(RskSystemProperties.CONFIG.getBlockchainConfig().getCommonConstants().getGasLimitBoundDivisor());
-        BlockParentCompositeRule unclesBlockParentHeaderValidator = new BlockParentCompositeRule(new PrevMinGasPriceRule(), new BlockParentNumberRule(), new BlockDifficultyRule(), parentGasLimitRule);
+        BlockParentGasLimitRule parentGasLimitRule = new BlockParentGasLimitRule(commonConstants.getGasLimitBoundDivisor());
+        BlockParentCompositeRule unclesBlockParentHeaderValidator = new BlockParentCompositeRule(new PrevMinGasPriceRule(), new BlockParentNumberRule(), new BlockDifficultyRule(difficultyCalculator), parentGasLimitRule);
 
-        int validPeriod = RskSystemProperties.CONFIG.getBlockchainConfig().getCommonConstants().getNewBlockMaxMinInTheFuture();
+        int validPeriod = commonConstants.getNewBlockMaxSecondsInTheFuture();
         BlockTimeStampValidationRule blockTimeStampValidationRule = new BlockTimeStampValidationRule(validPeriod);
-        BlockCompositeRule unclesBlockHeaderValidator = new BlockCompositeRule(new ProofOfWorkRule(), blockTimeStampValidationRule, new ValidGasUsedRule());
+        BlockCompositeRule unclesBlockHeaderValidator = new BlockCompositeRule(proofOfWorkRule, blockTimeStampValidationRule, new ValidGasUsedRule());
 
         return new BlockUnclesValidationRule(blockStore, uncleListLimit, uncleGenLimit, unclesBlockHeaderValidator, unclesBlockParentHeaderValidator);
     }
 
     @Bean
-    public PeerExplorer peerExplorer() {
-        RskSystemProperties rskConfig = RskSystemProperties.CONFIG;
+    public PeerExplorer peerExplorer(RskSystemProperties rskConfig) {
         ECKey key = rskConfig.getMyKey();
-        Node localNode = new Node(key.getNodeId(), rskConfig.externalIp(), rskConfig.listenPort());
+        Node localNode = new Node(key.getNodeId(), rskConfig.getExternalIp(), rskConfig.listenPort());
         NodeDistanceTable distanceTable = new NodeDistanceTable(KademliaOptions.BINS, KademliaOptions.BUCKET_SIZE, localNode);
         long msgTimeOut = rskConfig.peerDiscoveryMessageTimeOut();
         long refreshPeriod = rskConfig.peerDiscoveryRefreshPeriod();
@@ -225,15 +239,7 @@ public class DefaultConfig {
     }
 
     @Bean
-    public UDPServer udpServer() {
-        PeerExplorer peerExplorer = appCtx.getBean(PeerExplorer.class);
-        RskSystemProperties rskConfig = RskSystemProperties.CONFIG;
-        return new UDPServer(rskConfig.bindIp(), rskConfig.listenPort(), peerExplorer);
-    }
-
-    @Bean
-    public SolidityCompiler solidityCompiler() {
-        RskSystemProperties rskConfig = RskSystemProperties.CONFIG;
-        return new SolidityCompiler(rskConfig);
+    public UDPServer udpServer(PeerExplorer peerExplorer, RskSystemProperties rskConfig) {
+        return new UDPServer(rskConfig.getPeerDiscoveryBindAddress(), rskConfig.listenPort(), peerExplorer);
     }
 }

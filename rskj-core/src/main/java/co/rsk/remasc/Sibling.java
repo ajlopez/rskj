@@ -32,33 +32,38 @@ import java.util.ArrayList;
  * Sibling information is added to contract state as blocks are processed and removed when no longer needed.
  * @author Oscar Guindzberg
  */
-class Sibling {
+public class Sibling {
 
     // Hash of the sibling block
     private byte[] hash;
     // Coinbase address of the sibling block
     private byte[] coinbase;
     // Fees paid by the sibling block
-    private long paidFees;
+    private BigInteger  paidFees;
     // Coinbase address of the block that included the sibling block as uncle
     private byte[] includedBlockCoinbase;
     // Height of the block that included the sibling block as uncle
     private long includedHeight;
+    // Number of uncles
+    private int uncleCount;
 
-    public Sibling(BlockHeader blockHeader, byte[]  includedBlockCoinbase, long includedHeight) {
-        this.hash = blockHeader.getHash();
-        this.coinbase = blockHeader.getCoinbase();
-        this.paidFees = blockHeader.getPaidFees();
-        this.includedBlockCoinbase = includedBlockCoinbase;
-        this.includedHeight = includedHeight;
+
+    public Sibling(BlockHeader blockHeader, byte[]  includedBlockCoinbase, long includedHeight){
+        this(blockHeader.getHash(),
+                blockHeader.getCoinbase(),
+                includedBlockCoinbase,
+                blockHeader.getPaidFees(),
+                includedHeight,
+                blockHeader.getUncleCount());
     }
 
-    private Sibling(byte[] hash, byte[] coinbase, byte[] includedBlockCoinbase, long paidFees, long includedHeight) {
+    private Sibling(byte[] hash, byte[] coinbase, byte[] includedBlockCoinbase, BigInteger  paidFees, long includedHeight, int uncleCount) {
         this.hash = hash;
         this.coinbase = coinbase;
         this.paidFees = paidFees;
         this.includedBlockCoinbase = includedBlockCoinbase;
         this.includedHeight = includedHeight;
+        this.uncleCount = uncleCount;
     }
 
     public byte[] getHash() {
@@ -69,7 +74,7 @@ class Sibling {
         return coinbase;
     }
 
-    public long getPaidFees() {
+    public BigInteger  getPaidFees() {
         return paidFees;
     }
 
@@ -81,15 +86,18 @@ class Sibling {
         return includedHeight;
     }
 
+    public int getUncleCount() { return uncleCount; }
+
     public byte[] getEncoded() {
         byte[] rlpHash = RLP.encodeElement(this.hash);
         byte[] rlpCoinbase = RLP.encodeElement(this.coinbase);
         byte[] rlpIncludedBlockCoinbase = RLP.encodeElement(this.includedBlockCoinbase);
 
-        byte[] rlpPaidFees = RLP.encodeBigInteger(BigInteger.valueOf(this.paidFees));
+        byte[] rlpPaidFees = RLP.encodeBigInteger(this.paidFees);
         byte[] rlpIncludedHeight = RLP.encodeBigInteger(BigInteger.valueOf(this.includedHeight));
+        byte[] rlpUncleCount = RLP.encodeBigInteger(BigInteger.valueOf((this.uncleCount)));
 
-        return RLP.encodeList(rlpHash, rlpCoinbase, rlpIncludedBlockCoinbase, rlpPaidFees, rlpIncludedHeight);
+        return RLP.encodeList(rlpHash, rlpCoinbase, rlpIncludedBlockCoinbase, rlpPaidFees, rlpIncludedHeight, rlpUncleCount);
     }
 
     public static Sibling create(byte[] data) {
@@ -103,9 +111,13 @@ class Sibling {
         byte[] bytesPaidFees = sibling.get(3).getRLPData();
         byte[] bytesIncludedHeight = sibling.get(4).getRLPData();
 
-        long paidFees = bytesPaidFees == null ? 0 : BigIntegers.fromUnsignedByteArray(bytesPaidFees).longValue();
-        long includedHeight = bytesIncludedHeight == null ? 0 : BigIntegers.fromUnsignedByteArray(bytesIncludedHeight).longValue();
+        RLPElement uncleCountElement = sibling.get(5);
+        byte[] bytesUncleCount = uncleCountElement != null? uncleCountElement.getRLPData():null;
 
-        return new Sibling(hash, coinbase, includedBlockCoinbase, paidFees, includedHeight);
+        BigInteger paidFees = bytesPaidFees == null ? BigInteger.ZERO : BigIntegers.fromUnsignedByteArray(bytesPaidFees);
+        long includedHeight = bytesIncludedHeight == null ? 0 : BigIntegers.fromUnsignedByteArray(bytesIncludedHeight).longValue();
+        int uncleCount = bytesUncleCount == null ? 0 : BigIntegers.fromUnsignedByteArray(bytesUncleCount).intValue();
+
+        return new Sibling(hash, coinbase, includedBlockCoinbase, paidFees, includedHeight, uncleCount);
     }
 }

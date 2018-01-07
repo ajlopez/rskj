@@ -31,12 +31,19 @@ public class TestNetAfterBridgeSyncConfig extends GenesisConfig {
 
 
     public static class TestNetConstants extends GenesisConstants {
+
         private static final BigInteger DIFFICULTY_BOUND_DIVISOR = BigInteger.valueOf(50);
         private static final byte CHAIN_ID = 31;
+        private BigInteger minimumDifficulty = BigInteger.valueOf(131072);
 
         @Override
         public BridgeConstants getBridgeConstants() {
             return BridgeTestNetConstants.getInstance();
+        }
+
+        @Override
+        public BigInteger getMinimumDifficulty() {
+            return minimumDifficulty;
         }
 
         @Override
@@ -50,7 +57,7 @@ public class TestNetAfterBridgeSyncConfig extends GenesisConfig {
         }
 
         @Override
-        public int getNewBlockMaxMinInTheFuture() {
+        public int getNewBlockMaxSecondsInTheFuture() {
             return 540;
         }
 
@@ -73,8 +80,9 @@ public class TestNetAfterBridgeSyncConfig extends GenesisConfig {
     @Override
     public BigInteger calcDifficulty(BlockHeader curBlock, BlockHeader parent) {
         // If more than 10 minutes, reset to original difficulty 0x00100000
-        if (curBlock.getTimestamp() >= parent.getTimestamp() + 600)
+        if (curBlock.getTimestamp() >= parent.getTimestamp() + 600) {
             return getConstants().getMinimumDifficulty();
+        }
 
         return super.calcDifficulty(curBlock, parent);
     }

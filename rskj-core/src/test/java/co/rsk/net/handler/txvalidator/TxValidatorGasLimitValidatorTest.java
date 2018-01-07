@@ -38,8 +38,8 @@ public class TxValidatorGasLimitValidatorTest {
 
         TxValidatorGasLimitValidator tvglv = new TxValidatorGasLimitValidator();
 
-        Assert.assertTrue(tvglv.validate(tx1, null, gl, null, Long.MAX_VALUE));
-        Assert.assertTrue(tvglv.validate(tx2, null, gl, null, Long.MAX_VALUE));
+        Assert.assertTrue(tvglv.validate(tx1, null, gl, null, Long.MAX_VALUE, false));
+        Assert.assertTrue(tvglv.validate(tx2, null, gl, null, Long.MAX_VALUE, false));
     }
 
     @Test
@@ -48,11 +48,12 @@ public class TxValidatorGasLimitValidatorTest {
         Transaction tx1 = Mockito.mock(Transaction.class);
 
         Mockito.when(tx1.getGasLimitAsInteger()).thenReturn(BigInteger.valueOf(6));
+        Mockito.when(tx1.getHash()).thenReturn(new byte[32]);
 
         BigInteger gl = BigInteger.valueOf(3);
 
         TxValidatorGasLimitValidator tvglv = new TxValidatorGasLimitValidator();
 
-        Assert.assertFalse(tvglv.validate(tx1, null, gl, null, Long.MAX_VALUE));
+        Assert.assertFalse(tvglv.validate(tx1, null, gl, null, Long.MAX_VALUE, false));
     }
 }
