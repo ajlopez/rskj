@@ -45,10 +45,6 @@ public class WorldRepository {
 
         byte[] code = this.trie.get(codeHash);
 
-        if (code == null) {
-            return EMPTY_BYTE_ARRAY;
-        }
-
         return code;
     }
 }
