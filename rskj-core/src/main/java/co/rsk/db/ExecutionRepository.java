@@ -44,16 +44,21 @@ public class ExecutionRepository extends WorldRepository {
     }
 
     public void setCode(RskAddress address, byte[] code) {
-        AccountState accountState = this.getAccountState(address);
-
-        if (accountState == null) {
-            accountState = new AccountState();
-        }
+        AccountState accountState = this.getOrCreateAccountState(address);
 
         accountCodes.put(address, code);
         byte[] codeHash = HashUtil.keccak256(code);
         accountState.setCodeHash(codeHash);
+    }
 
-        this.setAccountState(address, accountState);
+    private AccountState getOrCreateAccountState(RskAddress address) {
+        AccountState accountState = this.getAccountState(address);
+
+        if (accountState == null) {
+            accountState = new AccountState();
+            this.accountStates.put(address, accountState);
+        }
+
+        return accountState;
     }
 }
