@@ -16,7 +16,7 @@ public class ExecutionRepository extends WorldRepository {
     private Map<RskAddress, byte[]> accountCodes = new HashMap<>();
 
     public ExecutionRepository(Trie trie) {
-        super(trie);
+        super(trie, null);
     }
 
     public AccountState getAccountState(RskAddress address) {

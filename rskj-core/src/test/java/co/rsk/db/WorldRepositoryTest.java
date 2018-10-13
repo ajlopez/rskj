@@ -4,8 +4,12 @@ import co.rsk.core.Coin;
 import co.rsk.core.RskAddress;
 import co.rsk.trie.Trie;
 import co.rsk.trie.TrieImpl;
+import co.rsk.trie.TrieStore;
+import co.rsk.trie.TrieStoreImpl;
 import org.ethereum.core.AccountState;
 import org.ethereum.crypto.HashUtil;
+import org.ethereum.datasource.HashMapDB;
+import org.ethereum.vm.DataWord;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -17,8 +21,9 @@ import java.math.BigInteger;
 public class WorldRepositoryTest {
     @Test
     public void getUnknownAccountStateAsNull() {
-        Trie trie = new TrieImpl();
-        WorldRepository repository = new WorldRepository(trie);
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
+        WorldRepository repository = new WorldRepository(trie, trieStore);
 
         AccountState accountState = repository.getAccountState(new RskAddress("0000000000000000000000000000000000001234"));
 
@@ -26,24 +31,15 @@ public class WorldRepositoryTest {
     }
 
     @Test
-    public void getUnknownAccountCodeAsEmptyByteArray() {
-        Trie trie = new TrieImpl();
-        WorldRepository repository = new WorldRepository(trie);
-
-        byte[] code = repository.getCode(new RskAddress("0000000000000000000000000000000000001234"));
-
-        Assert.assertNotNull(code);
-        Assert.assertEquals(0, code.length);
-    }
-
-    @Test
     public void getAccountState() {
         RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
         AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
-        Trie trie = new TrieImpl();
+
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
         trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
 
-        WorldRepository repository = new WorldRepository(trie);
+        WorldRepository repository = new WorldRepository(trie, trieStore);
 
         AccountState result = repository.getAccountState(accountAddress);
 
@@ -53,12 +49,25 @@ public class WorldRepositoryTest {
     }
 
     @Test
+    public void getUnknownAccountCodeAsEmptyByteArray() {
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
+        WorldRepository repository = new WorldRepository(trie, trieStore);
+
+        byte[] code = repository.getCode(new RskAddress("0000000000000000000000000000000000001234"));
+
+        Assert.assertNotNull(code);
+        Assert.assertEquals(0, code.length);
+    }
+
+    @Test
     public void getNewAccountCodeAsEmptyByteArray() {
         RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
         AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
-        Trie trie = new TrieImpl();
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
         trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
-        WorldRepository repository = new WorldRepository(trie);
+        WorldRepository repository = new WorldRepository(trie, trieStore);
 
         byte[] code = repository.getCode(new RskAddress("0000000000000000000000000000000000001234"));
 
@@ -74,11 +83,12 @@ public class WorldRepositoryTest {
         AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
         accountState.setCodeHash(codeHash);
 
-        Trie trie = new TrieImpl();
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
         trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
         trie = trie.put(codeHash, code);
 
-        WorldRepository repository = new WorldRepository(trie);
+        WorldRepository repository = new WorldRepository(trie, trieStore);
 
         byte[] result = repository.getCode(new RskAddress("0000000000000000000000000000000000001234"));
 
@@ -95,15 +105,67 @@ public class WorldRepositoryTest {
         accountState.setCodeHash(codeHash);
         accountState.hibernate();
 
-        Trie trie = new TrieImpl();
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
         trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
         trie = trie.put(codeHash, code);
 
-        WorldRepository repository = new WorldRepository(trie);
+        WorldRepository repository = new WorldRepository(trie, trieStore);
 
         byte[] result = repository.getCode(new RskAddress("0000000000000000000000000000000000001234"));
 
         Assert.assertNotNull(result);
         Assert.assertEquals(0, result.length);
+    }
+
+    @Test
+    public void getUnknownAccountStorageValueAsNull() {
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
+        WorldRepository repository = new WorldRepository(trie, trieStore);
+
+        DataWord value = repository.getStorageValue(new RskAddress("0000000000000000000000000000000000001234"), DataWord.ONE);
+
+        Assert.assertNull(value);
+    }
+
+    @Test
+    public void getNewAccountStorageValueAsNull() {
+        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
+        AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
+        trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
+        WorldRepository repository = new WorldRepository(trie, trieStore);
+
+        DataWord value = repository.getStorageValue(new RskAddress("0000000000000000000000000000000000001234"), DataWord.ONE);
+
+        Assert.assertNull(value);
+    }
+
+    @Test
+    public void getAccountStorageValue() {
+        DataWord key = DataWord.ONE;
+        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie storageTrie = new TrieImpl(trieStore, true);
+        storageTrie = storageTrie.put(key.getData(), new DataWord(10).getNoLeadZeroesData());
+
+        AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
+
+        storageTrie.save();
+        accountState.setStateRoot(storageTrie.getHash().getBytes());
+
+        Assert.assertNotNull(trieStore.retrieve(storageTrie.getHash().getBytes()));
+
+        Trie worldTrie = new TrieImpl(trieStore, true);
+        worldTrie = worldTrie.put(accountAddress.getBytes(), accountState.getEncoded());
+
+        WorldRepository repository = new WorldRepository(worldTrie, trieStore);
+
+        DataWord value = repository.getStorageValue(accountAddress, DataWord.ONE);
+
+        Assert.assertNotNull(value);
+        Assert.assertEquals(new DataWord(10), value);
     }
 }
