@@ -24,7 +24,11 @@ public class ExecutionRepository extends WorldRepository {
             return this.accountStates.get(address);
         }
 
-        return super.getAccountState(address);
+        AccountState accountState = super.getAccountState(address);
+
+        this.accountStates.put(address, accountState);
+
+        return accountState;
     }
 
     public void setAccountState(RskAddress address, AccountState accountState) {
