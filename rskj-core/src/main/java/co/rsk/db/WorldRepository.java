@@ -61,14 +61,6 @@ public class WorldRepository {
             return null;
         }
 
-        Trie storageTrie = this.trieStore.retrieve(accountState.getStateRoot());
-
-        byte[] value = storageTrie.get(key.getData());
-
-        if (value == null || value.length == 0) {
-            return null;
-        }
-
-        return new DataWord(value);
+        return new ContractStorage(this.trieStore.retrieve(accountState.getStateRoot())).getValue(key);
     }
 }
