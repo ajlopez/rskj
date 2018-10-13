@@ -20,6 +20,7 @@ package co.rsk.peg.performance;
 
 import co.rsk.bitcoinj.core.*;
 import co.rsk.config.BridgeConstants;
+import co.rsk.config.RskSystemProperties;
 import co.rsk.config.TestSystemProperties;
 import co.rsk.db.RepositoryImpl;
 import co.rsk.db.RepositoryTrackWithBenchmarking;
@@ -27,6 +28,7 @@ import co.rsk.peg.Bridge;
 import co.rsk.peg.BridgeStorageConfiguration;
 import co.rsk.peg.BridgeStorageProvider;
 import co.rsk.test.builders.BlockChainBuilder;
+import co.rsk.trie.TrieStoreImpl;
 import co.rsk.vm.VMPerformanceTest;
 import org.ethereum.config.blockchain.regtest.RegTestGenesisConfig;
 import org.ethereum.core.Blockchain;
@@ -34,6 +36,7 @@ import org.ethereum.core.Repository;
 import org.ethereum.core.Transaction;
 import org.ethereum.crypto.ECKey;
 import org.ethereum.crypto.HashUtil;
+import org.ethereum.datasource.HashMapDB;
 import org.ethereum.vm.LogInfo;
 import org.ethereum.vm.PrecompiledContracts;
 import org.junit.After;
@@ -248,7 +251,7 @@ public abstract class BridgePerformanceTestCase {
 
         ExecutionTracker executionInfo = new ExecutionTracker(thread);
 
-        RepositoryImpl repository = new RepositoryImpl(config);
+        RepositoryImpl repository = createRepositoryImpl(config);
         Repository track = repository.startTracking();
         BridgeStorageConfiguration bridgeStorageConfigurationAtThisHeight = BridgeStorageConfiguration.fromBlockchainConfig(config.getBlockchainConfig().getConfigForBlock(executionIndex));
         BridgeStorageProvider storageProvider = new BridgeStorageProvider(track, PrecompiledContracts.BRIDGE_ADDR, bridgeConstants,bridgeStorageConfigurationAtThisHeight);
@@ -266,7 +269,7 @@ public abstract class BridgePerformanceTestCase {
 
         List<LogInfo> logs = new ArrayList<>();
 
-        RepositoryTrackWithBenchmarking benchmarkerTrack = new RepositoryTrackWithBenchmarking(config, repository);
+        RepositoryTrackWithBenchmarking benchmarkerTrack = new RepositoryTrackWithBenchmarking(repository, name -> new TrieStoreImpl(new HashMapDB()), config.detailsInMemoryStorageLimit());
 
         Bridge bridge = new Bridge(config, PrecompiledContracts.BRIDGE_ADDR);
         Blockchain blockchain = BlockChainBuilder.ofSizeWithNoTransactionPoolCleaner(heightProvider.getHeight(executionIndex));
@@ -319,5 +322,9 @@ public abstract class BridgePerformanceTestCase {
         }
 
         return stats;
+    }
+
+    public static RepositoryImpl createRepositoryImpl(RskSystemProperties config) {
+        return new RepositoryImpl(null, name -> new TrieStoreImpl(new HashMapDB()), config.detailsInMemoryStorageLimit());
     }
 }

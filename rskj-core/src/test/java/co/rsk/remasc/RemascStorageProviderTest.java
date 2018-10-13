@@ -28,7 +28,7 @@ import co.rsk.db.RepositoryImpl;
 import co.rsk.db.RepositoryImplForTesting;
 import co.rsk.peg.PegTestUtils;
 import co.rsk.test.builders.BlockChainBuilder;
-import com.google.common.collect.Lists;
+import co.rsk.trie.TrieStoreImpl;
 import org.ethereum.config.BlockchainConfig;
 import org.ethereum.config.BlockchainNetConfig;
 import org.ethereum.config.Constants;
@@ -36,13 +36,15 @@ import org.ethereum.config.Constants;
 import org.ethereum.config.blockchain.mainnet.MainNetAfterBridgeSyncConfig;
 import org.ethereum.config.blockchain.mainnet.MainNetOrchidConfig;
 import org.ethereum.config.blockchain.testnet.TestNetAfterBridgeSyncConfig;
+import org.ethereum.config.blockchain.testnet.TestNetBeforeBridgeSyncConfig;
 import org.ethereum.config.blockchain.testnet.TestNetOrchidConfig;
-import org.ethereum.config.net.TestNetConfig;
 import org.ethereum.core.*;
 import org.ethereum.crypto.ECKey;
 import org.ethereum.crypto.Keccak256Helper;
+import org.ethereum.datasource.HashMapDB;
 import org.ethereum.db.BlockStore;
 import org.ethereum.vm.PrecompiledContracts;
+import org.ethereum.vm.program.invoke.ProgramInvokeFactoryImpl;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -50,7 +52,6 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.util.*;
 
-import static org.ethereum.TestUtils.randomAddress;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.spy;
@@ -103,7 +104,7 @@ public class RemascStorageProviderTest {
     @Test
     public void getDefautRewardBalance() {
         RskAddress accountAddress = randomAddress();
-        Repository repository = new RepositoryImpl(config);
+        Repository repository = createRepositoryImpl(config);
 
         RemascStorageProvider provider = new RemascStorageProvider(repository, accountAddress);
 
@@ -113,7 +114,7 @@ public class RemascStorageProviderTest {
     @Test
     public void setAndGetRewardBalance() {
         RskAddress accountAddress = randomAddress();
-        Repository repository = new RepositoryImpl(config);
+        Repository repository = createRepositoryImpl(config);
 
         RemascStorageProvider provider = new RemascStorageProvider(repository, accountAddress);
 
@@ -141,7 +142,7 @@ public class RemascStorageProviderTest {
     @Test
     public void getDefautBurnedBalance() {
         RskAddress accountAddress = randomAddress();
-        Repository repository = new RepositoryImpl(config);
+        Repository repository = createRepositoryImpl(config);
 
         RemascStorageProvider provider = new RemascStorageProvider(repository, accountAddress);
 
@@ -151,7 +152,7 @@ public class RemascStorageProviderTest {
     @Test
     public void setAndGetBurnedBalance() {
         RskAddress accountAddress = randomAddress();
-        Repository repository = new RepositoryImpl(config);
+        Repository repository = createRepositoryImpl(config);
 
         RemascStorageProvider provider = new RemascStorageProvider(repository, accountAddress);
 
@@ -179,7 +180,7 @@ public class RemascStorageProviderTest {
     @Test
     public void getDefaultBrokenSelectionRule() {
         RskAddress accountAddress = randomAddress();
-        Repository repository = new RepositoryImpl(config);
+        Repository repository = createRepositoryImpl(config);
 
         RemascStorageProvider provider = new RemascStorageProvider(repository, accountAddress);
 
@@ -189,7 +190,7 @@ public class RemascStorageProviderTest {
     @Test
     public void setAndGetBrokenSelectionRule() {
         RskAddress accountAddress = randomAddress();
-        Repository repository = new RepositoryImpl(config);
+        Repository repository = createRepositoryImpl(config);
 
         RemascStorageProvider provider = new RemascStorageProvider(repository, accountAddress);
 
@@ -217,7 +218,7 @@ public class RemascStorageProviderTest {
     @Test
     public void getDefaultSiblings() {
         RskAddress accountAddress = randomAddress();
-        Repository repository = new RepositoryImpl(config);
+        Repository repository = createRepositoryImpl(config);
 
         RemascStorageProvider provider = new RemascStorageProvider(repository, accountAddress);
 
@@ -230,7 +231,7 @@ public class RemascStorageProviderTest {
     @Test
     public void setAndGetSiblings() {
         RskAddress accountAddress = randomAddress();
-        Repository repository = new RepositoryImpl(config);
+        Repository repository = createRepositoryImpl(config);
 
         RemascStorageProvider provider = new RemascStorageProvider(repository, accountAddress);
 
@@ -368,15 +369,16 @@ public class RemascStorageProviderTest {
     @Test
     public void setSaveRetrieveAndGetSiblingsBeforeRFS() throws IOException {
         RskSystemProperties config = spy(new TestSystemProperties());
-        BlockchainNetConfig blockchainConfig = new TestNetConfig();
+        BlockchainNetConfig blockchainConfig = spy(new TestNetAfterBridgeSyncConfig());
         when(config.getBlockchainConfig()).thenReturn(blockchainConfig);
+        when(((TestNetBeforeBridgeSyncConfig) blockchainConfig).isRskip85()).thenReturn(false);
         long minerFee = 21000;
         long txValue = 10000;
 
 
         BlockChainBuilder builder = new BlockChainBuilder().setTesting(true).setGenesis(genesisBlock).setConfig(config);
 
-        List<SiblingElement> siblings = Lists.newArrayList(new SiblingElement(5, 6, minerFee), new SiblingElement(10, 11, minerFee));
+        List<SiblingElement> siblings = Arrays.asList(new SiblingElement(5, 6, minerFee), new SiblingElement(10, 11, minerFee));
 
         RemascTestRunner testRunner = new RemascTestRunner(builder, this.genesisBlock).txValue(txValue).minerFee(minerFee)
                 .initialHeight(15).siblingElements(siblings).txSigningKey(this.cowKey);
@@ -396,7 +398,7 @@ public class RemascStorageProviderTest {
 
         BlockChainBuilder builder = new BlockChainBuilder().setTesting(true).setGenesis(genesisBlock).setConfig(config);
 
-        List<SiblingElement> siblings = Lists.newArrayList(
+        List<SiblingElement> siblings = Arrays.asList(
                 new SiblingElement(5, 6, minerFee),
                 new SiblingElement(10, 11, minerFee)
         );
@@ -424,7 +426,7 @@ public class RemascStorageProviderTest {
 
         BlockChainBuilder builder = new BlockChainBuilder().setTesting(true).setGenesis(genesisBlock).setConfig(config);
 
-        List<SiblingElement> siblings = Lists.newArrayList(new SiblingElement(5, 6, minerFee), new SiblingElement(10, 11, minerFee));
+        List<SiblingElement> siblings = Arrays.asList(new SiblingElement(5, 6, minerFee), new SiblingElement(10, 11, minerFee));
 
         RemascTestRunner testRunner = new RemascTestRunner(builder, this.genesisBlock).txValue(txValue).minerFee(minerFee)
                 .initialHeight(15).siblingElements(siblings).txSigningKey(this.cowKey);
@@ -444,7 +446,7 @@ public class RemascStorageProviderTest {
 
         BlockChainBuilder builder = new BlockChainBuilder().setTesting(true).setGenesis(genesisBlock).setConfig(config);
 
-        List<SiblingElement> siblings = Lists.newArrayList(new SiblingElement(5, 6, minerFee), new SiblingElement(10, 11, minerFee));
+        List<SiblingElement> siblings = Arrays.asList(new SiblingElement(5, 6, minerFee), new SiblingElement(10, 11, minerFee));
 
         RemascTestRunner testRunner = new RemascTestRunner(builder, this.genesisBlock).txValue(txValue).minerFee(minerFee)
                 .initialHeight(15).siblingElements(siblings).txSigningKey(this.cowKey);
@@ -460,6 +462,7 @@ public class RemascStorageProviderTest {
         Constants constants = spy(new TestNetAfterBridgeSyncConfig.TestNetConstants());
         when(config.getBlockchainConfig()).thenReturn(blockchainConfig);
         when(blockchainConfig.getCommonConstants()).thenReturn(constants);
+        when(((TestNetAfterBridgeSyncConfig) blockchainConfig).isRskip85()).thenReturn(false);
         when(((BlockchainConfig)blockchainConfig).getConstants()).thenReturn(constants);
         when(blockchainConfig.getConfigForBlock(anyLong())).thenReturn((BlockchainConfig)blockchainConfig);
         // we need to pass chain id check, and make believe that testnet config has same chain id as cow account
@@ -486,6 +489,7 @@ public class RemascStorageProviderTest {
         Constants constants = spy(new TestNetAfterBridgeSyncConfig.TestNetConstants());
         when(config.getBlockchainConfig()).thenReturn(blockchainConfig);
         when(blockchainConfig.getCommonConstants()).thenReturn(constants);
+        when(((TestNetAfterBridgeSyncConfig) blockchainConfig).isRskip85()).thenReturn(false);
         when(((BlockchainConfig)blockchainConfig).getConstants()).thenReturn(constants);
         when(blockchainConfig.getConfigForBlock(anyLong())).thenReturn((BlockchainConfig)blockchainConfig);
         // we need to pass chain id check, and make believe that testnet config has same chain id as cow account
@@ -505,7 +509,8 @@ public class RemascStorageProviderTest {
         Repository repository = testRunner.getBlockChain().getRepository();
         RemascFederationProvider federationProvider = new RemascFederationProvider(config, repository, testRunner.getBlockChain().getBestBlock());
         assertEquals(Coin.valueOf(0), this.getRemascStorageProvider(testRunner.getBlockChain()).getFederationBalance());
-        assertEquals(Coin.valueOf(48), RemascTestRunner.getAccountBalance(repository, federationProvider.getFederatorAddress(0)));
+        long federatorBalance = (168 / federationProvider.getFederationSize()) * 2;
+        assertEquals(Coin.valueOf(federatorBalance), RemascTestRunner.getAccountBalance(repository, federationProvider.getFederatorAddress(0)));
     }
 
     @Test
@@ -585,8 +590,9 @@ public class RemascStorageProviderTest {
         testRunner.start();
         Repository repository = testRunner.getBlockChain().getRepository();
         RemascFederationProvider federationProvider = new RemascFederationProvider(config, repository, testRunner.getBlockChain().getBestBlock());
+        long federatorBalance = (1680 / federationProvider.getFederationSize()) * 2;
         assertEquals(Coin.valueOf(0), this.getRemascStorageProvider(testRunner.getBlockChain()).getFederationBalance());
-        assertEquals(Coin.valueOf(480), RemascTestRunner.getAccountBalance(repository, federationProvider.getFederatorAddress(0)));
+        assertEquals(Coin.valueOf(federatorBalance), RemascTestRunner.getAccountBalance(repository, federationProvider.getFederatorAddress(0)));
     }
 
     @Test
@@ -654,7 +660,28 @@ public class RemascStorageProviderTest {
 
         Repository repository = blockchain.getRepository();
         BlockStore blockStore = blockchain.getBlockStore();
-        BlockExecutor blockExecutor = new BlockExecutor(config, repository, null, blockStore, null);
+        final ProgramInvokeFactoryImpl programInvokeFactory = new ProgramInvokeFactoryImpl();
+        BlockExecutor blockExecutor = new BlockExecutor(repository, (tx, txindex, coinbase1, track, block, totalGasUsed) -> new TransactionExecutor(
+                tx,
+                txindex,
+                block.getCoinbase(),
+                track,
+                blockStore,
+                null,
+                programInvokeFactory,
+                block,
+                null,
+                totalGasUsed,
+                config.getVmConfig(),
+                config.getBlockchainConfig(),
+                config.playVM(),
+                config.isRemascEnabled(),
+                config.vmTrace(),
+                new PrecompiledContracts(config),
+                config.databaseDir(),
+                config.vmTraceDir(),
+                config.vmTraceCompressed()
+        ));
 
         for (Block b : blocks) {
             blockExecutor.executeAndFillAll(b, blockchain.getBestBlock());
@@ -671,4 +698,7 @@ public class RemascStorageProviderTest {
         }
     }
 
+    public static RepositoryImpl createRepositoryImpl(RskSystemProperties config) {
+        return new RepositoryImpl(null, name -> new TrieStoreImpl(new HashMapDB()), config.detailsInMemoryStorageLimit());
+    }
 }
