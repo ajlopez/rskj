@@ -28,6 +28,17 @@ public class WorldRepositoryTest {
     }
 
     @Test
+    public void getUnknownAccountCodeAsEmptyByteArray() {
+        Trie trie = new TrieImpl();
+        WorldRepository repository = new WorldRepository(trie);
+
+        byte[] code = repository.getCode(new RskAddress("0000000000000000000000000000000000001234"));
+
+        Assert.assertNotNull(code);
+        Assert.assertEquals(0, code.length);
+    }
+
+    @Test
     public void getAccountState() {
         RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
         AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
