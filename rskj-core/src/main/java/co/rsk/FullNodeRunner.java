@@ -23,8 +23,6 @@ import co.rsk.blocks.FileBlockRecorder;
 import co.rsk.config.RskSystemProperties;
 import co.rsk.core.Rsk;
 import co.rsk.core.RskImpl;
-import co.rsk.db.PruneConfiguration;
-import co.rsk.db.PruneService;
 import co.rsk.mine.MinerClient;
 import co.rsk.mine.MinerServer;
 import co.rsk.mine.TxBuilder;
@@ -73,8 +71,6 @@ public class FullNodeRunner implements NodeRunner {
     private final SyncPool.PeerClientFactory peerClientFactory;
     private final TransactionGateway transactionGateway;
 
-    private final PruneService pruneService;
-
     @Autowired
     public FullNodeRunner(
             Rsk rsk,
@@ -113,9 +109,6 @@ public class FullNodeRunner implements NodeRunner {
         this.peerServer = peerServer;
         this.peerClientFactory = peerClientFactory;
         this.transactionGateway = transactionGateway;
-
-        PruneConfiguration pruneConfiguration = rskSystemProperties.getPruneConfiguration();
-        this.pruneService = new PruneService(pruneConfiguration, rskSystemProperties, blockchain, PrecompiledContracts.REMASC_ADDR);
     }
 
     @Override
@@ -183,10 +176,6 @@ public class FullNodeRunner implements NodeRunner {
             }
         }
 
-        if (rskSystemProperties.isPruneEnabled()) {
-            pruneService.start();
-        }
-
         logger.info("done");
     }
 
@@ -235,10 +224,6 @@ public class FullNodeRunner implements NodeRunner {
     @Override
     public void stop() {
         logger.info("Shutting down RSK node");
-
-        if (rskSystemProperties.isPruneEnabled()) {
-            pruneService.stop();
-        }
 
         syncPool.stop();
 
