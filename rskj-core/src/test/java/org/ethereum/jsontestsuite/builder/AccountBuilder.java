@@ -42,7 +42,7 @@ public class AccountBuilder {
     public static StateWrap build(AccountTck account, HashMapDB store) {
 
         TestSystemProperties config = new TestSystemProperties();
-        ContractDetailsImpl details = new ContractDetailsImpl(null, new TrieImpl(new TrieStoreImpl(store), true), null, name -> new TrieStoreImpl(store), config.detailsInMemoryStorageLimit());
+        ContractDetailsImpl details = new ContractDetailsImpl(null, new TrieImpl(new TrieStoreImpl(store), true), null, name -> new TrieStoreImpl(store));
         details.setCode(parseData(account.getCode()));
         details.setStorage(convertStorage(account.getStorage()));
 

@@ -57,16 +57,15 @@ public class CommonConfig {
             FileUtil.recursiveDelete(databaseDir);
             logger.info("Database reset done");
         }
-        return buildRepository(databaseDir, config.detailsInMemoryStorageLimit());
+        return buildRepository(databaseDir);
     }
 
-    public Repository buildRepository(String databaseDir, int memoryStorageLimit) {
+    public Repository buildRepository(String databaseDir) {
         KeyValueDataSource ds = makeDataSource("state", databaseDir);
         KeyValueDataSource detailsDS = makeDataSource("details", databaseDir);
 
         return new RepositoryImpl(new TrieStoreImpl(ds), detailsDS,
-                                  name -> new TrieStoreImpl(levelDbByName(name, databaseDir)),
-                                  memoryStorageLimit
+                                  name -> new TrieStoreImpl(levelDbByName(name, databaseDir))
         );
     }
 

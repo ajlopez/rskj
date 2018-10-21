@@ -18,10 +18,7 @@
 
 package co.rsk.db;
 
-import co.rsk.config.RskSystemProperties;
-import co.rsk.config.TestSystemProperties;
 import co.rsk.core.RskAddress;
-import co.rsk.trie.TrieStore;
 import co.rsk.trie.TrieStoreImpl;
 import org.ethereum.core.Repository;
 import org.ethereum.crypto.HashUtil;
@@ -49,12 +46,11 @@ public class RepositoryTest {
 
     public static final RskAddress COW = new RskAddress("CD2A3D9F938E13CD947EC05ABC7FE734DF8DD826");
     public static final RskAddress HORSE = new RskAddress("13978AEE95F38490E9769C39B2773ED763D9CD5F");
-    private final TestSystemProperties config = new TestSystemProperties();
 
     @Test
     public void test4() {
 
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
         Repository track = repository.startTracking();
 
         byte[] cowKey = Hex.decode("A1A2A3");
@@ -76,7 +72,7 @@ public class RepositoryTest {
     @Test
     public void test9() {
 
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
         Repository track = repository.startTracking();
 
         byte[] cow = Hex.decode("CD2A3D9F938E13CD947EC05ABC7FE734DF8DD826");
@@ -105,7 +101,7 @@ public class RepositoryTest {
     @Test
     public void test10() {
 
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
         Repository track = repository.startTracking();
 
         byte[] cow = Hex.decode("CD2A3D9F938E13CD947EC05ABC7FE734DF8DD826");
@@ -133,7 +129,7 @@ public class RepositoryTest {
 
     @Test
     public void test16() {
-        Repository repository = new RepositoryImpl(new TrieStoreImpl(new HashMapDB()), name -> new TrieStoreImpl(new HashMapDB()), config.detailsInMemoryStorageLimit());
+        Repository repository = new RepositoryImpl(new TrieStoreImpl(new HashMapDB()), name -> new TrieStoreImpl(new HashMapDB()));
 
         byte[] cow = Hex.decode("CD2A3D9F938E13CD947EC05ABC7FE734DF8DD826");
         byte[] horse = Hex.decode("13978AEE95F38490E9769C39B2773ED763D9CD5F");
@@ -192,7 +188,7 @@ public class RepositoryTest {
 
     @Test
     public void test16_2() {
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
 
         byte[] cow = Hex.decode("CD2A3D9F938E13CD947EC05ABC7FE734DF8DD826");
         byte[] horse = Hex.decode("13978AEE95F38490E9769C39B2773ED763D9CD5F");
@@ -257,7 +253,7 @@ public class RepositoryTest {
 
     @Test
     public void test16_3() {
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
 
         byte[] cow = Hex.decode("CD2A3D9F938E13CD947EC05ABC7FE734DF8DD826");
         byte[] horse = Hex.decode("13978AEE95F38490E9769C39B2773ED763D9CD5F");
@@ -311,7 +307,7 @@ public class RepositoryTest {
 
     @Test
     public void test16_4() {
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
 
         byte[] cow = Hex.decode("CD2A3D9F938E13CD947EC05ABC7FE734DF8DD826");
         byte[] horse = Hex.decode("13978AEE95F38490E9769C39B2773ED763D9CD5F");
@@ -353,7 +349,7 @@ public class RepositoryTest {
 
     @Test
     public void test16_5() {
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
 
         byte[] cow = Hex.decode("CD2A3D9F938E13CD947EC05ABC7FE734DF8DD826");
         byte[] horse = Hex.decode("13978AEE95F38490E9769C39B2773ED763D9CD5F");
@@ -393,7 +389,7 @@ public class RepositoryTest {
 
     @Test
     public void test17() {
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
 
         byte[] cow = Hex.decode("CD2A3D9F938E13CD947EC05ABC7FE734DF8DD826");
 
@@ -419,7 +415,7 @@ public class RepositoryTest {
 
     @Test
     public void test19() {
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
         Repository track = repository.startTracking();
 
         byte[] cow = Hex.decode("CD2A3D9F938E13CD947EC05ABC7FE734DF8DD826");
@@ -463,7 +459,7 @@ public class RepositoryTest {
 
     @Test
     public void test19b() {
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
         Repository track = repository.startTracking();
 
         byte[] cow = Hex.decode("CD2A3D9F938E13CD947EC05ABC7FE734DF8DD826");
@@ -509,8 +505,7 @@ public class RepositoryTest {
     public void testMultiThread() throws InterruptedException {
         HashMapDB store = new HashMapDB();
         final Repository repository = new RepositoryImpl(new TrieStoreImpl(store),
-                                                         name -> new TrieStoreImpl(store),
-                                                         config.detailsInMemoryStorageLimit());
+                                                         name -> new TrieStoreImpl(store));
 
         final DataWord cowKey1 = new DataWord("c1");
         final DataWord cowKey2 = new DataWord("c2");
@@ -574,7 +569,7 @@ public class RepositoryTest {
         }
     }
 
-    public static RepositoryImpl createRepositoryImpl(RskSystemProperties config) {
-        return new RepositoryImpl(null, name -> new TrieStoreImpl(new HashMapDB()), config.detailsInMemoryStorageLimit());
+    public static RepositoryImpl createRepositoryImpl() {
+        return new RepositoryImpl(null, name -> new TrieStoreImpl(new HashMapDB()));
     }
 }

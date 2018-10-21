@@ -153,7 +153,7 @@ public class RskWireProtocol extends EthHandler {
     protected void processStatus(org.ethereum.net.eth.message.StatusMessage msg, ChannelHandlerContext ctx) throws InterruptedException {
 
         try {
-            Genesis genesis = GenesisLoader.loadGenesis(config, config.genesisInfo(), config.getBlockchainConfig().getCommonConstants().getInitialNonce(), true);
+            Genesis genesis = GenesisLoader.loadGenesis(config.genesisInfo(), config.getBlockchainConfig().getCommonConstants().getInitialNonce(), true);
             if (!Arrays.equals(msg.getGenesisHash(), genesis.getHash().getBytes())
                     || msg.getProtocolVersion() != version.getCode()) {
                 loggerNet.info("Removing EthHandler for {} due to protocol incompatibility", ctx.channel().remoteAddress());
@@ -230,7 +230,7 @@ public class RskWireProtocol extends EthHandler {
         BlockDifficulty totalDifficulty = blockChainStatus.getTotalDifficulty();
 
         // Original status
-        Genesis genesis = GenesisLoader.loadGenesis(config, config.genesisInfo(), config.getBlockchainConfig().getCommonConstants().getInitialNonce(), true);
+        Genesis genesis = GenesisLoader.loadGenesis(config.genesisInfo(), config.getBlockchainConfig().getCommonConstants().getInitialNonce(), true);
         org.ethereum.net.eth.message.StatusMessage msg = new org.ethereum.net.eth.message.StatusMessage(protocolVersion, networkId,
                 ByteUtil.bigIntegerToBytes(totalDifficulty.asBigInteger()), bestBlock.getHash().getBytes(), genesis.getHash().getBytes());
         sendMessage(msg);

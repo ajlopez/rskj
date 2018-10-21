@@ -78,7 +78,7 @@ public class BridgeStorageProviderTest {
 
     @Test
     public void createInstance() throws IOException {
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
         BridgeStorageProvider provider = new BridgeStorageProvider(repository, PrecompiledContracts.BRIDGE_ADDR, config.getBlockchainConfig().getCommonConstants().getBridgeConstants(), bridgeStorageConfigurationAtHeightZero);
 
         Map<Sha256Hash, Long> processed = provider.getBtcTxHashesAlreadyProcessed();
@@ -109,7 +109,7 @@ public class BridgeStorageProviderTest {
 
     @Test
     public void createSaveAndRecreateInstance() throws IOException {
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
         Repository track = repository.startTracking();
 
         BridgeStorageProvider provider0 = new BridgeStorageProvider(track, PrecompiledContracts.BRIDGE_ADDR, config.getBlockchainConfig().getCommonConstants().getBridgeConstants(), bridgeStorageConfigurationAtHeightZero);
@@ -172,7 +172,7 @@ public class BridgeStorageProviderTest {
         Sha256Hash hash1 = PegTestUtils.createHash();
         Sha256Hash hash2 = PegTestUtils.createHash();
 
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
         Repository track = repository.startTracking();
 
         BridgeStorageProvider provider0 = new BridgeStorageProvider(track, PrecompiledContracts.BRIDGE_ADDR, config.getBlockchainConfig().getCommonConstants().getBridgeConstants(), bridgeStorageConfigurationAtHeightZero);
@@ -201,7 +201,7 @@ public class BridgeStorageProviderTest {
         Keccak256 hash2 = PegTestUtils.createHash3();
         Keccak256 hash3 = PegTestUtils.createHash3();
 
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
         Repository track = repository.startTracking();
 
         BridgeStorageProvider provider0 = new BridgeStorageProvider(track, PrecompiledContracts.BRIDGE_ADDR, config.getBlockchainConfig().getCommonConstants().getBridgeConstants(), bridgeStorageConfigurationAtHeightZero);
@@ -234,7 +234,7 @@ public class BridgeStorageProviderTest {
         Sha256Hash hash1 = PegTestUtils.createHash();
         Sha256Hash hash2 = PegTestUtils.createHash();
 
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
         Repository track = repository.startTracking();
 
         BridgeConstants bridgeConstants = config.getBlockchainConfig().getCommonConstants().getBridgeConstants();
@@ -734,7 +734,7 @@ public class BridgeStorageProviderTest {
 
     @Test
     public void setFeePerKb_savedAndRecreated() {
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
         Repository track = repository.startTracking();
 
         BridgeStorageProvider provider0 = new BridgeStorageProvider(track, PrecompiledContracts.BRIDGE_ADDR, config.getBlockchainConfig().getCommonConstants().getBridgeConstants(), bridgeStorageConfigurationAtHeightZero);
@@ -814,7 +814,7 @@ public class BridgeStorageProviderTest {
         return new Address(config.getBlockchainConfig().getCommonConstants().getBridgeConstants().getBtcParams(), Hex.decode(addr));
     }
 
-    public static RepositoryImpl createRepositoryImpl(RskSystemProperties config) {
-        return new RepositoryImpl(null, name -> new TrieStoreImpl(new HashMapDB()), config.detailsInMemoryStorageLimit());
+    public static RepositoryImpl createRepositoryImpl() {
+        return new RepositoryImpl(null, name -> new TrieStoreImpl(new HashMapDB()));
     }
 }

@@ -847,7 +847,7 @@ public class BlockChainImplTest {
 
     @Test
     public void addInvalidMGPBlock() {
-        Repository repository = new RepositoryImpl(new TrieStoreImpl(new HashMapDB()), name -> new TrieStoreImpl(new HashMapDB()), config.detailsInMemoryStorageLimit());
+        Repository repository = new RepositoryImpl(new TrieStoreImpl(new HashMapDB()), name -> new TrieStoreImpl(new HashMapDB()));
 
         IndexedBlockStore blockStore = new IndexedBlockStore(new HashMap<>(), new HashMapDB(), null);
 
@@ -878,7 +878,7 @@ public class BlockChainImplTest {
 
     @Test
     public void addValidMGPBlock() {
-        Repository repository = new RepositoryImpl(new TrieStoreImpl(new HashMapDB()), name -> new TrieStoreImpl(new HashMapDB()), config.detailsInMemoryStorageLimit());
+        Repository repository = new RepositoryImpl(new TrieStoreImpl(new HashMapDB()), name -> new TrieStoreImpl(new HashMapDB()));
 
         IndexedBlockStore blockStore = new IndexedBlockStore(new HashMap<>(), new HashMapDB(), (DB) null);
 
@@ -985,7 +985,7 @@ public class BlockChainImplTest {
     public static Block getGenesisBlock(BlockChainImpl blockChain) {
         Repository repository = blockChain.getRepository();
 
-        Genesis genesis = GenesisLoader.loadGenesis(config, "rsk-unittests.json", BigInteger.ZERO, true);
+        Genesis genesis = GenesisLoader.loadGenesis("rsk-unittests.json", BigInteger.ZERO, true);
 
         for (RskAddress addr : genesis.getPremine().keySet()) {
             repository.createAccount(addr);

@@ -18,7 +18,6 @@
 
 package co.rsk.peg;
 
-import co.rsk.config.RskSystemProperties;
 import co.rsk.config.TestSystemProperties;
 import co.rsk.db.RepositoryImpl;
 import co.rsk.trie.TrieStoreImpl;
@@ -78,7 +77,7 @@ public class SamplePrecompiledContractTest {
         byte[] bytes = new byte[]{(byte) 0xab, (byte) 0xcd, (byte) 0xef};
         byte[] data = function.encode(111, bytes, 222);
 
-        contract.init(null, null, createRepositoryImpl(config), null, null, new ArrayList<LogInfo>());
+        contract.init(null, null, createRepositoryImpl(), null, null, new ArrayList<LogInfo>());
         byte[] result = contract.execute(data);
 
         Object[] results = function.decodeResult(result);
@@ -107,7 +106,7 @@ public class SamplePrecompiledContractTest {
 
         byte[] data = new byte[]{(byte) 0xab, (byte) 0xcd, (byte) 0xef};
 
-        contract.init(null, null, createRepositoryImpl(config), null, null, new ArrayList<LogInfo>());
+        contract.init(null, null, createRepositoryImpl(), null, null, new ArrayList<LogInfo>());
         byte[] result = contract.execute(data);
 
         assertNull(result);
@@ -136,7 +135,7 @@ public class SamplePrecompiledContractTest {
         byte[] bytes = new byte[]{(byte) 0xab, (byte) 0xcd, (byte) 0xef};
         byte[] data = function.encode(111, bytes, 222);
 
-        contract.init(null, null, createRepositoryImpl(config), null, null, new ArrayList<LogInfo>());
+        contract.init(null, null, createRepositoryImpl(), null, null, new ArrayList<LogInfo>());
         byte[] result = contract.execute(data);
 
         assertNull(result);
@@ -163,7 +162,7 @@ public class SamplePrecompiledContractTest {
 
         byte[] data = function.encode(111, StringUtils.leftPad("foobar", 1000000, '*'));
 
-        contract.init(null, null, createRepositoryImpl(config), null, null, new ArrayList<LogInfo>());
+        contract.init(null, null, createRepositoryImpl(), null, null, new ArrayList<LogInfo>());
         byte[] result = contract.execute(data);
 
         Object[] results = function.decodeResult(result);
@@ -190,7 +189,7 @@ public class SamplePrecompiledContractTest {
 
         byte[] data = function.encode();
 
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
         contract.init(null, null, repository, null, null, new ArrayList<LogInfo>());
         contract.execute(data);
 
@@ -201,7 +200,7 @@ public class SamplePrecompiledContractTest {
     @Test
     public void samplePrecompiledContractGetBalanceInitialBalance()
     {
-        int balance = this.GetBalance(createRepositoryImpl(config));
+        int balance = this.GetBalance(createRepositoryImpl());
         assertEquals(0, balance);
     }
 
@@ -225,7 +224,7 @@ public class SamplePrecompiledContractTest {
 
         byte[] data = function.encode();
 
-        Repository repository = createRepositoryImpl(config);
+        Repository repository = createRepositoryImpl();
         Repository track = repository.startTracking();
         contract.init(null, null, track, null, null, new ArrayList<LogInfo>());
         contract.execute(data);
@@ -238,7 +237,7 @@ public class SamplePrecompiledContractTest {
     @Test
     public void samplePrecompiledContractGetResultInitialValue()
     {
-        int result = this.GetResult(createRepositoryImpl(config));
+        int result = this.GetResult(createRepositoryImpl());
         assertEquals(0, result);
     }
 
@@ -305,7 +304,7 @@ public class SamplePrecompiledContractTest {
         Assert.assertNull(contract);
     }
 
-    public static RepositoryImpl createRepositoryImpl(RskSystemProperties config) {
-        return new RepositoryImpl(null, name -> new TrieStoreImpl(new HashMapDB()), config.detailsInMemoryStorageLimit());
+    public static RepositoryImpl createRepositoryImpl() {
+        return new RepositoryImpl(null, name -> new TrieStoreImpl(new HashMapDB()));
     }
 }

@@ -43,12 +43,12 @@ import java.util.Map;
 public class GenesisLoader {
     private static final Logger logger = LoggerFactory.getLogger("genesisloader");
 
-    public static Genesis loadGenesis(RskSystemProperties config, String genesisFile, BigInteger initialNonce, boolean isRsk)  {
+    public static Genesis loadGenesis(String genesisFile, BigInteger initialNonce, boolean isRsk)  {
         InputStream is = GenesisLoader.class.getResourceAsStream("/genesis/" + genesisFile);
-        return loadGenesis(config, initialNonce, is, isRsk);
+        return loadGenesis(initialNonce, is, isRsk);
     }
 
-    public static Genesis loadGenesis(RskSystemProperties config, BigInteger initialNonce, InputStream genesisJsonIS, boolean isRsk)  {
+    public static Genesis loadGenesis(BigInteger initialNonce, InputStream genesisJsonIS, boolean isRsk)  {
         try {
 
             String json = new String(ByteStreams.toByteArray(genesisJsonIS));
@@ -60,7 +60,7 @@ public class GenesisLoader {
 
             Genesis genesis = new GenesisMapper().mapFromJson(genesisJson, isRsk);
 
-            Map<RskAddress, InitialAddressState> premine = generatePreMine(config, initialNonce, genesisJson.getAlloc());
+            Map<RskAddress, InitialAddressState> premine = generatePreMine(initialNonce, genesisJson.getAlloc());
             genesis.setPremine(premine);
 
             byte[] rootHash = generateRootHash(premine);
@@ -77,9 +77,9 @@ public class GenesisLoader {
         }
     }
 
-    private static Map<RskAddress, InitialAddressState> generatePreMine(RskSystemProperties config, BigInteger initialNonce, Map<String, AllocatedAccount> alloc){
+    private static Map<RskAddress, InitialAddressState> generatePreMine(BigInteger initialNonce, Map<String, AllocatedAccount> alloc){
         Map<RskAddress, InitialAddressState> premine = new HashMap<>();
-        ContractDetailsMapper detailsMapper = new ContractDetailsMapper(config);
+        ContractDetailsMapper detailsMapper = new ContractDetailsMapper();
 
         for (Map.Entry<String, AllocatedAccount> accountEntry : alloc.entrySet()) {
             if(!StringUtils.equals("00", accountEntry.getKey())) {

@@ -61,30 +61,26 @@ public class RepositoryImpl implements Repository {
     private DetailsDataStore detailsDataStore;
     private boolean closed;
     private TrieStore.Factory trieStoreFactory;
-    private int memoryStorageLimit;
 
-    public RepositoryImpl(TrieStore store, TrieStore.Factory trieStoreFactory, int memoryStorageLimit) {
-        this(store, new HashMapDB(), trieStoreFactory, memoryStorageLimit);
+    public RepositoryImpl(TrieStore store, TrieStore.Factory trieStoreFactory) {
+        this(store, new HashMapDB(), trieStoreFactory);
     }
 
     public RepositoryImpl(
             TrieStore store,
             KeyValueDataSource detailsDS,
-            TrieStore.Factory trieStoreFactory,
-            int memoryStorageLimit) {
-        this(store, new DetailsDataStore(new DatabaseImpl(detailsDS), trieStoreFactory, memoryStorageLimit), trieStoreFactory, memoryStorageLimit);
+            TrieStore.Factory trieStoreFactory) {
+        this(store, new DetailsDataStore(new DatabaseImpl(detailsDS), trieStoreFactory), trieStoreFactory);
     }
 
     private RepositoryImpl(
             TrieStore store,
             DetailsDataStore detailsDataStore,
-            TrieStore.Factory trieStoreFactory,
-            int memoryStorageLimit) {
+            TrieStore.Factory trieStoreFactory) {
         this.store = store;
         this.trie = new TrieImpl(store, true);
         this.detailsDataStore = detailsDataStore;
         this.trieStoreFactory = trieStoreFactory;
-        this.memoryStorageLimit = memoryStorageLimit;
     }
 
     @Override
@@ -95,8 +91,7 @@ public class RepositoryImpl implements Repository {
                 addr.getBytes(),
                 null,
                 null,
-                trieStoreFactory,
-                memoryStorageLimit
+                trieStoreFactory
         ));
         return accountState;
     }
@@ -282,7 +277,7 @@ public class RepositoryImpl implements Repository {
 
     @Override
     public synchronized Repository startTracking() {
-        return new RepositoryTrack(this, trieStoreFactory, memoryStorageLimit);
+        return new RepositoryTrack(this, trieStoreFactory);
     }
 
     @Override
@@ -357,8 +352,7 @@ public class RepositoryImpl implements Repository {
                             addr.getBytes(),
                             null,
                             null,
-                            trieStoreFactory,
-                            memoryStorageLimit
+                            trieStoreFactory
                     );
                     originalContractDetails.setAddress(addr.getBytes());
                     contractDetailsCache.setOriginalContractDetails(originalContractDetails);
@@ -412,7 +406,7 @@ public class RepositoryImpl implements Repository {
 
     @Override
     public synchronized Repository getSnapshotTo(byte[] root) {
-        RepositoryImpl snapshotRepository = new RepositoryImpl(this.store, this.detailsDataStore, this.trieStoreFactory, this.memoryStorageLimit);
+        RepositoryImpl snapshotRepository = new RepositoryImpl(this.store, this.detailsDataStore, this.trieStoreFactory);
         snapshotRepository.syncToRoot(root);
         return snapshotRepository;
     }

@@ -57,7 +57,7 @@ public class ImportLightTest {
         }));
         IndexedBlockStore blockStore = new IndexedBlockStore(new HashMap<>(), new HashMapDB(), null);
 
-        Repository repository = new RepositoryImpl(new TrieStoreImpl(new HashMapDB()), name -> new TrieStoreImpl(new HashMapDB()), config.detailsInMemoryStorageLimit());
+        Repository repository = new RepositoryImpl(new TrieStoreImpl(new HashMapDB()), name -> new TrieStoreImpl(new HashMapDB()));
 
         CompositeEthereumListener listener = new TestCompositeEthereumListener();
 

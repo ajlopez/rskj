@@ -251,7 +251,7 @@ public abstract class BridgePerformanceTestCase {
 
         ExecutionTracker executionInfo = new ExecutionTracker(thread);
 
-        RepositoryImpl repository = createRepositoryImpl(config);
+        RepositoryImpl repository = createRepositoryImpl();
         Repository track = repository.startTracking();
         BridgeStorageConfiguration bridgeStorageConfigurationAtThisHeight = BridgeStorageConfiguration.fromBlockchainConfig(config.getBlockchainConfig().getConfigForBlock(executionIndex));
         BridgeStorageProvider storageProvider = new BridgeStorageProvider(track, PrecompiledContracts.BRIDGE_ADDR, bridgeConstants,bridgeStorageConfigurationAtThisHeight);
@@ -269,7 +269,7 @@ public abstract class BridgePerformanceTestCase {
 
         List<LogInfo> logs = new ArrayList<>();
 
-        RepositoryTrackWithBenchmarking benchmarkerTrack = new RepositoryTrackWithBenchmarking(repository, name -> new TrieStoreImpl(new HashMapDB()), config.detailsInMemoryStorageLimit());
+        RepositoryTrackWithBenchmarking benchmarkerTrack = new RepositoryTrackWithBenchmarking(repository, name -> new TrieStoreImpl(new HashMapDB()));
 
         Bridge bridge = new Bridge(config, PrecompiledContracts.BRIDGE_ADDR);
         Blockchain blockchain = BlockChainBuilder.ofSizeWithNoTransactionPoolCleaner(heightProvider.getHeight(executionIndex));
@@ -324,7 +324,7 @@ public abstract class BridgePerformanceTestCase {
         return stats;
     }
 
-    public static RepositoryImpl createRepositoryImpl(RskSystemProperties config) {
-        return new RepositoryImpl(null, name -> new TrieStoreImpl(new HashMapDB()), config.detailsInMemoryStorageLimit());
+    public static RepositoryImpl createRepositoryImpl() {
+        return new RepositoryImpl(null, name -> new TrieStoreImpl(new HashMapDB()));
     }
 }

@@ -44,13 +44,11 @@ public class DetailsDataStore {
     private final Set<RskAddress> removes = new HashSet<>();
 
     private final DatabaseImpl db;
-    private final int memoryStorageLimit;
     private TrieStore.Factory trieStoreFactory;
 
-    public DetailsDataStore(DatabaseImpl db, TrieStore.Factory trieStoreFactory, int memoryStorageLimit) {
+    public DetailsDataStore(DatabaseImpl db, TrieStore.Factory trieStoreFactory) {
         this.db = db;
         this.trieStoreFactory = trieStoreFactory;
-        this.memoryStorageLimit = memoryStorageLimit;
     }
 
     public synchronized ContractDetails get(RskAddress addr) {
@@ -66,7 +64,7 @@ public class DetailsDataStore {
                 return null;
             }
 
-            details = createContractDetails(data, trieStoreFactory, memoryStorageLimit);
+            details = createContractDetails(data, trieStoreFactory);
             cache.put(addr, details);
 
             float out = ((float) data.length) / 1048576;
@@ -81,9 +79,8 @@ public class DetailsDataStore {
 
     protected ContractDetails createContractDetails(
             byte[] data,
-            TrieStore.Factory trieStoreFactory,
-            int memoryStorageLimit) {
-        return new ContractDetailsImpl(data, trieStoreFactory, memoryStorageLimit);
+            TrieStore.Factory trieStoreFactory) {
+        return new ContractDetailsImpl(data, trieStoreFactory);
     }
 
     public synchronized void update(RskAddress addr, ContractDetails contractDetails) {

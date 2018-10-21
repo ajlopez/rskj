@@ -53,25 +53,20 @@ public class ContractDetailsImpl implements ContractDetails {
     private byte[] address;
     private boolean dirty;
     private boolean deleted;
-    private boolean originalExternalStorage;
-    private boolean externalStorage;
     private boolean closed;
     private Set<ByteArrayWrapper> keys = new HashSet<>();
     private final TrieStore.Factory trieStoreFactory;
-    private final int memoryStorageLimit;
 
-    public ContractDetailsImpl(byte[] encoded, TrieStore.Factory trieStoreFactory, int memoryStorageLimit) {
+    public ContractDetailsImpl(byte[] encoded, TrieStore.Factory trieStoreFactory) {
         this.trieStoreFactory = trieStoreFactory;
-        this.memoryStorageLimit = memoryStorageLimit;
         decode(encoded);
     }
 
-    public ContractDetailsImpl(byte[] address, Trie trie, byte[] code, TrieStore.Factory trieStoreFactory, int memoryStorageLimit) {
+    public ContractDetailsImpl(byte[] address, Trie trie, byte[] code, TrieStore.Factory trieStoreFactory) {
         this.address = ByteUtils.clone(address);
         this.trie = trie;
         this.code = ByteUtils.clone(code);
         this.trieStoreFactory = trieStoreFactory;
-        this.memoryStorageLimit = memoryStorageLimit;
 
         if (this.trie == null) {
             this.trie = new TrieImpl(trieStoreFactory.newInstance(getDataSourceName()), true);
@@ -96,7 +91,6 @@ public class ContractDetailsImpl implements ContractDetails {
         }
 
         this.setDirty(true);
-        this.checkExternalStorage();
     }
 
     @Override
@@ -117,7 +111,6 @@ public class ContractDetailsImpl implements ContractDetails {
         }
 
         this.setDirty(true);
-        this.checkExternalStorage();
     }
 
     @Override
@@ -186,15 +179,9 @@ public class ContractDetailsImpl implements ContractDetails {
         RLPList rlpKeys = (RLPList) rlpList.get(4);
 
         this.address = rlpAddress.getRLPData();
-        this.externalStorage = rlpIsExternalStorage.getRLPData() != null;
-        this.originalExternalStorage = this.externalStorage;
 
-        if (this.externalStorage) {
-            Keccak256 snapshotHash = new Keccak256(rlpStorage.getRLPData());
-            this.trie = new TrieImpl(trieStoreFactory.newInstance(getDataSourceName()), true).getSnapshotTo(snapshotHash);
-        } else {
-            this.trie = TrieImpl.deserialize(rlpStorage.getRLPData());
-        }
+        Keccak256 snapshotHash = new Keccak256(rlpStorage.getRLPData());
+        this.trie = new TrieImpl(trieStoreFactory.newInstance(getDataSourceName()), true).getSnapshotTo(snapshotHash);
 
         this.code = (rlpCode.getRLPData() == null) ? EMPTY_BYTE_ARRAY : rlpCode.getRLPData();
 
@@ -202,7 +189,7 @@ public class ContractDetailsImpl implements ContractDetails {
             addKey(key.getRLPData());
         }
 
-        logger.trace("decoding contract details from bytes, hash {}, address {}, storage size {}, has external storage {}", this.getStorageHashAsString(), this.getAddressAsString(), this.getStorageSize(), this.hasExternalStorage());
+        logger.trace("decoding contract details from bytes, hash {}, address {}, storage size {}, has external storage {}", this.getStorageHashAsString(), this.getAddressAsString(), this.getStorageSize());
     }
 
     @Override
@@ -227,7 +214,7 @@ public class ContractDetailsImpl implements ContractDetails {
 
     @Override
     public byte[] getEncoded() {
-        logger.trace("getting contract details as bytes, hash {}, address {}, storage size {}, has external storage {}", this.getStorageHashAsString(), this.getAddressAsString(), this.getStorageSize(), this.hasExternalStorage());
+        logger.trace("getting contract details as bytes, hash {}, address {}, storage size {}", this.getStorageHashAsString(), this.getAddressAsString(), this.getStorageSize());
 
         byte[] rlpAddress = RLP.encodeElement(address);
         byte[] rlpIsExternalStorage = RLP.encodeByte((byte) 1);
@@ -327,34 +314,9 @@ public class ContractDetailsImpl implements ContractDetails {
 
             this.trie.save();
 
-            if (this.externalStorage && !this.originalExternalStorage) {
-                // switching to data source
-
-                logger.trace("switching to data source, hash {}, address {}", hashString, addressString);
-                TrieStoreImpl newStore = (TrieStoreImpl) trieStoreFactory.newInstance(this.getDataSourceName());
-                TrieStoreImpl originalStore = (TrieStoreImpl)((TrieImpl) this.trie).getStore();
-                newStore.copyFrom(originalStore);
-                Trie newTrie = newStore.retrieve(this.trie.getHash().getBytes());
-                this.trie = newTrie;
-
-                // checking the trie it's OK
-
-                if (newTrie == null) {
-                    logger.error("error switching to data source, hash {}, address {}", hashString, addressString);
-                    String message = "error switching to data source, hash " + hashString + ", address " + addressString;
-                    panicProcessor.panic("newcontractdetails", message);
-                    throw new TrieSerializationException(message, null);
-                }
-
-                // to avoid re switching to data source
-                this.originalExternalStorage = true;
-            }
-
-            if (this.externalStorage) {
-                logger.trace("closing contract details data source, hash {}, address {}", hashString, addressString);
-                DataSourcePool.closeDataSource(getDataSourceName());
-                this.closed = true;
-            }
+            logger.trace("closing contract details data source, hash {}, address {}", hashString, addressString);
+            DataSourcePool.closeDataSource(getDataSourceName());
+            this.closed = true;
         }
     }
 
@@ -367,18 +329,13 @@ public class ContractDetailsImpl implements ContractDetails {
         ContractDetailsImpl details = new ContractDetailsImpl(this.address,
                                                               this.trie.getSnapshotTo(new Keccak256(hash)),
                                                               this.code,
-                                                              this.trieStoreFactory,
-                                                              this.memoryStorageLimit);
+                                                              this.trieStoreFactory);
         details.keys = new HashSet<>();
         details.keys.addAll(this.keys);
-        details.externalStorage = this.externalStorage;
-        details.originalExternalStorage = this.originalExternalStorage;
 
-        if (this.externalStorage) {
-            DataSourcePool.reserve(getDataSourceName());
-        }
+        DataSourcePool.reserve(getDataSourceName());
 
-        logger.trace("getting contract details snapshot hash {}, address {}, storage size {}, has external storage {}", details.getStorageHashAsString(), details.getAddressAsString(), details.getStorageSize(), details.hasExternalStorage());
+        logger.trace("getting contract details snapshot hash {}, address {}, storage size {}, has external storage {}", details.getStorageHashAsString(), details.getAddressAsString(), details.getStorageSize());
 
         return details;
     }
@@ -392,20 +349,12 @@ public class ContractDetailsImpl implements ContractDetails {
         return this.trie;
     }
 
-    public boolean hasExternalStorage() {
-        return this.externalStorage;
-    }
-
     private void addKey(byte[] key) {
         keys.add(wrap(key));
     }
 
     private void removeKey(byte[] key) {
         keys.remove(wrap(key));
-    }
-
-    private void checkExternalStorage() {
-        this.externalStorage = true;
     }
 
     private String getDataSourceName() {
@@ -424,10 +373,6 @@ public class ContractDetailsImpl implements ContractDetails {
 
     private void checkDataSourceIsOpened() {
         if (!this.closed) {
-            return;
-        }
-
-        if (!this.externalStorage) {
             return;
         }
 

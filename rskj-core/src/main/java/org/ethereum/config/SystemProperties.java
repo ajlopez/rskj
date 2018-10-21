@@ -439,11 +439,6 @@ public abstract class SystemProperties {
     }
 
     @ValidateMe
-    public int detailsInMemoryStorageLimit() {
-        return configFromFiles.getInt("details.inmemory.storage.limit");
-    }
-
-    @ValidateMe
     public String vmTraceDir() {
         return configFromFiles.getString("vm.structured.dir");
     }

@@ -18,8 +18,6 @@
 
 package co.rsk.db;
 
-import co.rsk.config.RskSystemProperties;
-import co.rsk.config.TestSystemProperties;
 import co.rsk.core.RskAddress;
 import co.rsk.trie.TrieStoreImpl;
 import org.ethereum.core.AccountState;
@@ -32,10 +30,8 @@ import org.ethereum.vm.DataWord;
  */
 public class RepositoryImplForTesting extends RepositoryImpl {
 
-    private static RskSystemProperties config = new TestSystemProperties();
-
     public RepositoryImplForTesting() {
-        super(null, name -> new TrieStoreImpl(new HashMapDB()), config.detailsInMemoryStorageLimit());
+        super(null, name -> new TrieStoreImpl(new HashMapDB()));
     }
 
     @Override
