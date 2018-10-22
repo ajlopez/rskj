@@ -5,12 +5,15 @@ import co.rsk.core.Rsk;
 import co.rsk.core.RskAddress;
 import co.rsk.trie.Trie;
 import co.rsk.trie.TrieStore;
+import org.ethereum.core.Account;
 import org.ethereum.core.AccountState;
 import org.ethereum.crypto.HashUtil;
 import org.ethereum.vm.DataWord;
 
 import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.ethereum.crypto.HashUtil.EMPTY_TRIE_HASH;
 
@@ -23,6 +26,8 @@ public class WorldRepository implements NewRepository {
 
     private Trie trie;
     private TrieStore trieStore;
+
+    private Map<RskAddress, AccountState> accountStates = new HashMap<>();
 
     public WorldRepository(Trie trie, TrieStore trieStore) {
         this.trie = trie;
@@ -79,13 +84,45 @@ public class WorldRepository implements NewRepository {
         return new ContractStorage(this.trieStore.retrieve(accountState.getStateRoot())).getBytes(key);
     }
 
-    protected AccountState getAccountState(RskAddress address) {
-        byte[] accountData = this.trie.get(address.getBytes());
+    public BigInteger incrementAccountNonce(RskAddress accountAddress) {
+        AccountState accountState = this.retrieveAccountState(accountAddress);
+
+        accountState.incrementNonce();
+
+        return accountState.getNonce();
+    }
+
+    protected AccountState getAccountState(RskAddress accountAddress) {
+        if (this.accountStates.containsKey(accountAddress)) {
+            return this.accountStates.get(accountAddress);
+        }
+
+        byte[] accountData = this.trie.get(accountAddress.getBytes());
 
         if (accountData == null) {
             return new AccountState();
         }
 
         return new AccountState(accountData);
+    }
+
+    private AccountState retrieveAccountState(RskAddress accountAddress) {
+        if (this.accountStates.containsKey(accountAddress)) {
+            return this.accountStates.get(accountAddress);
+        }
+
+        byte[] accountData = this.trie.get(accountAddress.getBytes());
+        AccountState accountState;
+
+        if (accountData == null) {
+            accountState = new AccountState();
+        }
+        else {
+            accountState = new AccountState(accountData);
+        }
+
+        this.accountStates.put(accountAddress, accountState);
+
+        return accountState;
     }
 }

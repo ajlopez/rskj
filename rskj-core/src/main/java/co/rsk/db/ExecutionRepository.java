@@ -19,14 +19,14 @@ public class ExecutionRepository extends WorldRepository {
         super(trie, null);
     }
 
-    public AccountState getAccountState(RskAddress address) {
-        if (this.accountStates.containsKey(address)) {
-            return this.accountStates.get(address);
+    public AccountState getAccountState(RskAddress accountAddress) {
+        if (this.accountStates.containsKey(accountAddress)) {
+            return this.accountStates.get(accountAddress);
         }
 
-        AccountState accountState = super.getAccountState(address);
+        AccountState accountState = super.getAccountState(accountAddress);
 
-        this.accountStates.put(address, accountState);
+        this.accountStates.put(accountAddress, accountState);
 
         return accountState;
     }

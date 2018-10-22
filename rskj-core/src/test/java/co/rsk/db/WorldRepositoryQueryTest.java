@@ -18,7 +18,7 @@ import java.math.BigInteger;
 /**
  * Created by ajlopez on 13/10/2018.
  */
-public class WorldQueryRepositoryTest {
+public class WorldRepositoryQueryTest {
     private static RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
 
     @Test

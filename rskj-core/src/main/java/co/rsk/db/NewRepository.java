@@ -19,4 +19,7 @@ public interface NewRepository {
     // Storage query methods
     DataWord getStorageValue(RskAddress accountAddress, DataWord key);
     byte[] getStorageBytes(RskAddress accountAddress, DataWord key);
+
+    // Account update methods
+    BigInteger incrementAccountNonce(RskAddress accountAddress);
 }
