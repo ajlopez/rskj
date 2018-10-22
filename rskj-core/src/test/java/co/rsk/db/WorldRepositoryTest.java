@@ -139,4 +139,45 @@ public class WorldRepositoryTest {
         Assert.assertNotNull(value);
         Assert.assertEquals(new DataWord(10), value);
     }
+
+    @Test
+    public void getNewAccountStorageBytesAsNull() {
+        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
+        AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
+        trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
+        WorldRepository repository = new WorldRepository(trie, trieStore);
+
+        byte[] bytes = repository.getStorageBytes(new RskAddress("0000000000000000000000000000000000001234"), DataWord.ONE);
+
+        Assert.assertNull(bytes);
+    }
+
+    @Test
+    public void getAccountStorageBytes() {
+        byte[] bytes = new byte[] { 0x01, 0x02, 0x03 };
+        DataWord key = DataWord.ONE;
+        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie storageTrie = new TrieImpl(trieStore, true);
+        storageTrie = storageTrie.put(key.getData(), bytes);
+
+        AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
+
+        storageTrie.save();
+        accountState.setStateRoot(storageTrie.getHash().getBytes());
+
+        Assert.assertNotNull(trieStore.retrieve(storageTrie.getHash().getBytes()));
+
+        Trie worldTrie = new TrieImpl(trieStore, true);
+        worldTrie = worldTrie.put(accountAddress.getBytes(), accountState.getEncoded());
+
+        WorldRepository repository = new WorldRepository(worldTrie, trieStore);
+
+        byte[] result = repository.getStorageBytes(accountAddress, DataWord.ONE);
+
+        Assert.assertNotNull(result);
+        Assert.assertArrayEquals(bytes, result);
+    }
 }

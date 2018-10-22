@@ -66,7 +66,13 @@ public class WorldRepository implements NewRepository {
     }
 
     public byte[] getStorageBytes(RskAddress address, DataWord key) {
-        throw new UnsupportedOperationException();
+        AccountState accountState = this.getAccountState(address);
+
+        if (accountState == null || Arrays.equals(EMPTY_TRIE_HASH, accountState.getStateRoot())) {
+            return null;
+        }
+
+        return new ContractStorage(this.trieStore.retrieve(accountState.getStateRoot())).getBytes(key);
     }
 
     protected AccountState getAccountState(RskAddress address) {

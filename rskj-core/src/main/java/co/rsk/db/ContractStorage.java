@@ -22,4 +22,14 @@ public class ContractStorage {
 
         return new DataWord(value);
     }
+
+    public byte[] getBytes(DataWord key) {
+        byte[] value = this.trie.get(key.getData());
+
+        if (value == null || value.length == 0) {
+            return null;
+        }
+
+        return value;
+    }
 }
