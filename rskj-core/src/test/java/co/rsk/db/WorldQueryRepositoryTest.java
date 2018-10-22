@@ -18,7 +18,9 @@ import java.math.BigInteger;
 /**
  * Created by ajlopez on 13/10/2018.
  */
-public class WorldRepositoryTest {
+public class WorldQueryRepositoryTest {
+    private static RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
+
     @Test
     public void getUnknownAccountCodeAsEmptyByteArray() {
         TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
@@ -33,7 +35,6 @@ public class WorldRepositoryTest {
 
     @Test
     public void getNewAccountCodeAsEmptyByteArray() {
-        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
         AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
         TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
         Trie trie = new TrieImpl(trieStore, true);
@@ -50,7 +51,6 @@ public class WorldRepositoryTest {
     public void getAccountCode() {
         byte[] code = new byte[] { 0x01, 0x02, 0x03 };
         byte[] codeHash = HashUtil.keccak256(code);
-        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
         AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
         accountState.setCodeHash(codeHash);
 
@@ -71,7 +71,6 @@ public class WorldRepositoryTest {
     public void getHibernatedAccountCode() {
         byte[] code = new byte[] { 0x01, 0x02, 0x03 };
         byte[] codeHash = HashUtil.keccak256(code);
-        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
         AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
         accountState.setCodeHash(codeHash);
         accountState.hibernate();
@@ -102,7 +101,6 @@ public class WorldRepositoryTest {
 
     @Test
     public void getNewAccountStorageValueAsNull() {
-        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
         AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
         TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
         Trie trie = new TrieImpl(trieStore, true);
@@ -117,7 +115,6 @@ public class WorldRepositoryTest {
     @Test
     public void getAccountStorageValue() {
         DataWord key = DataWord.ONE;
-        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
         TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
         Trie storageTrie = new TrieImpl(trieStore, true);
         storageTrie = storageTrie.put(key.getData(), new DataWord(10).getNoLeadZeroesData());
@@ -142,7 +139,6 @@ public class WorldRepositoryTest {
 
     @Test
     public void getNewAccountStorageBytesAsNull() {
-        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
         AccountState accountState = new AccountState();
         TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
         Trie trie = new TrieImpl(trieStore, true);
@@ -158,7 +154,6 @@ public class WorldRepositoryTest {
     public void getAccountStorageBytes() {
         byte[] bytes = new byte[] { 0x01, 0x02, 0x03 };
         DataWord key = DataWord.ONE;
-        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
         TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
         Trie storageTrie = new TrieImpl(trieStore, true);
         storageTrie = storageTrie.put(key.getData(), bytes);
@@ -183,7 +178,6 @@ public class WorldRepositoryTest {
 
     @Test
     public void getUnknownAccountNonceAsZero() {
-        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
         TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
         Trie trie = new TrieImpl(trieStore, true);
         WorldRepository repository = new WorldRepository(trie, trieStore);
@@ -196,7 +190,6 @@ public class WorldRepositoryTest {
 
     @Test
     public void getNewAccountNonceAsZero() {
-        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
         AccountState accountState = new AccountState();
         TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
         Trie trie = new TrieImpl(trieStore, true);
@@ -211,7 +204,6 @@ public class WorldRepositoryTest {
 
     @Test
     public void getAccountNonce() {
-        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
         AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
         TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
         Trie trie = new TrieImpl(trieStore, true);
@@ -226,7 +218,6 @@ public class WorldRepositoryTest {
 
     @Test
     public void getUnknownAccountBalanceAsZero() {
-        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
         TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
         Trie trie = new TrieImpl(trieStore, true);
         WorldRepository repository = new WorldRepository(trie, trieStore);
@@ -239,7 +230,6 @@ public class WorldRepositoryTest {
 
     @Test
     public void getNewAccountBalanceAsZero() {
-        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
         AccountState accountState = new AccountState();
         TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
         Trie trie = new TrieImpl(trieStore, true);
@@ -254,7 +244,6 @@ public class WorldRepositoryTest {
 
     @Test
     public void getAccountBalance() {
-        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
         AccountState accountState = new AccountState(BigInteger.ONE, new Coin(BigInteger.TEN));
         TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
         Trie trie = new TrieImpl(trieStore, true);
