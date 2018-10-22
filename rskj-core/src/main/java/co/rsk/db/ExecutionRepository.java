@@ -40,7 +40,7 @@ public class ExecutionRepository extends WorldRepository {
             return this.accountCodes.get(address);
         }
 
-        byte[] code = super.getCode(address);
+        byte[] code = super.getAccountCode(address);
 
         this.accountCodes.put(address, code);
 

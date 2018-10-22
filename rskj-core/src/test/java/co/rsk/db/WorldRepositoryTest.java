@@ -20,41 +20,12 @@ import java.math.BigInteger;
  */
 public class WorldRepositoryTest {
     @Test
-    public void getUnknownAccountStateAsNull() {
-        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
-        Trie trie = new TrieImpl(trieStore, true);
-        WorldRepository repository = new WorldRepository(trie, trieStore);
-
-        AccountState accountState = repository.getAccountState(new RskAddress("0000000000000000000000000000000000001234"));
-
-        Assert.assertNull(accountState);
-    }
-
-    @Test
-    public void getAccountState() {
-        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
-        AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
-
-        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
-        Trie trie = new TrieImpl(trieStore, true);
-        trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
-
-        WorldRepository repository = new WorldRepository(trie, trieStore);
-
-        AccountState result = repository.getAccountState(accountAddress);
-
-        Assert.assertNotNull(result);
-        Assert.assertEquals(accountState.getBalance(), result.getBalance());
-        Assert.assertEquals(accountState.getNonce(), result.getNonce());
-    }
-
-    @Test
     public void getUnknownAccountCodeAsEmptyByteArray() {
         TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
         Trie trie = new TrieImpl(trieStore, true);
         WorldRepository repository = new WorldRepository(trie, trieStore);
 
-        byte[] code = repository.getCode(new RskAddress("0000000000000000000000000000000000001234"));
+        byte[] code = repository.getAccountCode(new RskAddress("0000000000000000000000000000000000001234"));
 
         Assert.assertNotNull(code);
         Assert.assertEquals(0, code.length);
@@ -69,7 +40,7 @@ public class WorldRepositoryTest {
         trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
         WorldRepository repository = new WorldRepository(trie, trieStore);
 
-        byte[] code = repository.getCode(new RskAddress("0000000000000000000000000000000000001234"));
+        byte[] code = repository.getAccountCode(new RskAddress("0000000000000000000000000000000000001234"));
 
         Assert.assertNotNull(code);
         Assert.assertEquals(0, code.length);
@@ -90,7 +61,7 @@ public class WorldRepositoryTest {
 
         WorldRepository repository = new WorldRepository(trie, trieStore);
 
-        byte[] result = repository.getCode(new RskAddress("0000000000000000000000000000000000001234"));
+        byte[] result = repository.getAccountCode(new RskAddress("0000000000000000000000000000000000001234"));
 
         Assert.assertNotNull(result);
         Assert.assertArrayEquals(code, result);
@@ -112,7 +83,7 @@ public class WorldRepositoryTest {
 
         WorldRepository repository = new WorldRepository(trie, trieStore);
 
-        byte[] result = repository.getCode(new RskAddress("0000000000000000000000000000000000001234"));
+        byte[] result = repository.getAccountCode(new RskAddress("0000000000000000000000000000000000001234"));
 
         Assert.assertNotNull(result);
         Assert.assertEquals(0, result.length);

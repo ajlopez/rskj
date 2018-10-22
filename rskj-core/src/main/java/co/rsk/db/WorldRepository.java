@@ -1,5 +1,7 @@
 package co.rsk.db;
 
+import co.rsk.core.Coin;
+import co.rsk.core.Rsk;
 import co.rsk.core.RskAddress;
 import co.rsk.trie.Trie;
 import co.rsk.trie.TrieStore;
@@ -7,6 +9,7 @@ import org.ethereum.core.AccountState;
 import org.ethereum.crypto.HashUtil;
 import org.ethereum.vm.DataWord;
 
+import java.math.BigInteger;
 import java.util.Arrays;
 
 import static org.ethereum.crypto.HashUtil.EMPTY_TRIE_HASH;
@@ -14,7 +17,7 @@ import static org.ethereum.crypto.HashUtil.EMPTY_TRIE_HASH;
 /**
  * Created by ajlopez on 13/10/2018.
  */
-public class WorldRepository {
+public class WorldRepository implements NewRepository {
     private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
     private static final byte[] EMPTY_DATA_HASH = HashUtil.keccak256(EMPTY_BYTE_ARRAY);
 
@@ -26,17 +29,15 @@ public class WorldRepository {
         this.trieStore = trieStore;
     }
 
-    public AccountState getAccountState(RskAddress address) {
-        byte[] accountData = this.trie.get(address.getBytes());
-
-        if (accountData == null) {
-            return null;
-        }
-
-        return new AccountState(accountData);
+    public Coin getAccountBalance(RskAddress address) {
+        throw new UnsupportedOperationException();
     }
 
-    public byte[] getCode(RskAddress address) {
+    public BigInteger getAccountNonce(RskAddress address) {
+        throw new UnsupportedOperationException();
+    }
+
+    public byte[] getAccountCode(RskAddress address) {
         AccountState accountState = this.getAccountState(address);
 
         if (accountState == null || accountState.isHibernated()) {
@@ -62,5 +63,19 @@ public class WorldRepository {
         }
 
         return new ContractStorage(this.trieStore.retrieve(accountState.getStateRoot())).getValue(key);
+    }
+
+    public byte[] getStorageBytes(RskAddress address, DataWord key) {
+        throw new UnsupportedOperationException();
+    }
+
+    protected AccountState getAccountState(RskAddress address) {
+        byte[] accountData = this.trie.get(address.getBytes());
+
+        if (accountData == null) {
+            return null;
+        }
+
+        return new AccountState(accountData);
     }
 }
