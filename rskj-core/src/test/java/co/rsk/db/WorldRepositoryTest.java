@@ -109,7 +109,7 @@ public class WorldRepositoryTest {
         trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
         WorldRepository repository = new WorldRepository(trie, trieStore);
 
-        DataWord value = repository.getStorageValue(new RskAddress("0000000000000000000000000000000000001234"), DataWord.ONE);
+        DataWord value = repository.getStorageValue(accountAddress, DataWord.ONE);
 
         Assert.assertNull(value);
     }
@@ -143,13 +143,13 @@ public class WorldRepositoryTest {
     @Test
     public void getNewAccountStorageBytesAsNull() {
         RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
-        AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
+        AccountState accountState = new AccountState();
         TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
         Trie trie = new TrieImpl(trieStore, true);
         trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
         WorldRepository repository = new WorldRepository(trie, trieStore);
 
-        byte[] bytes = repository.getStorageBytes(new RskAddress("0000000000000000000000000000000000001234"), DataWord.ONE);
+        byte[] bytes = repository.getStorageBytes(accountAddress, DataWord.ONE);
 
         Assert.assertNull(bytes);
     }
@@ -179,5 +179,48 @@ public class WorldRepositoryTest {
 
         Assert.assertNotNull(result);
         Assert.assertArrayEquals(bytes, result);
+    }
+
+    @Test
+    public void getUnknownAccountNonceAsZero() {
+        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
+        WorldRepository repository = new WorldRepository(trie, trieStore);
+
+        BigInteger nonce = repository.getAccountNonce(accountAddress);
+
+        Assert.assertNotNull(nonce);
+        Assert.assertEquals(BigInteger.ZERO, nonce);
+    }
+
+    @Test
+    public void getNewAccountNonceAsZero() {
+        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
+        AccountState accountState = new AccountState();
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
+        trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
+        WorldRepository repository = new WorldRepository(trie, trieStore);
+
+        BigInteger nonce = repository.getAccountNonce(accountAddress);
+
+        Assert.assertNotNull(nonce);
+        Assert.assertEquals(BigInteger.ZERO, nonce);
+    }
+
+    @Test
+    public void getAccountNonce() {
+        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
+        AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
+        trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
+        WorldRepository repository = new WorldRepository(trie, trieStore);
+
+        BigInteger nonce = repository.getAccountNonce(accountAddress);
+
+        Assert.assertNotNull(nonce);
+        Assert.assertEquals(BigInteger.ONE, nonce);
     }
 }

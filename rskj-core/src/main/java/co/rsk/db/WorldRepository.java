@@ -34,13 +34,15 @@ public class WorldRepository implements NewRepository {
     }
 
     public BigInteger getAccountNonce(RskAddress address) {
-        throw new UnsupportedOperationException();
+        AccountState accountState = this.getAccountState(address);
+
+        return accountState.getNonce();
     }
 
     public byte[] getAccountCode(RskAddress address) {
         AccountState accountState = this.getAccountState(address);
 
-        if (accountState == null || accountState.isHibernated()) {
+        if (accountState.isHibernated()) {
             return EMPTY_BYTE_ARRAY;
         }
 
@@ -58,7 +60,7 @@ public class WorldRepository implements NewRepository {
     public DataWord getStorageValue(RskAddress address, DataWord key) {
         AccountState accountState = this.getAccountState(address);
 
-        if (accountState == null || Arrays.equals(EMPTY_TRIE_HASH, accountState.getStateRoot())) {
+        if (Arrays.equals(EMPTY_TRIE_HASH, accountState.getStateRoot())) {
             return null;
         }
 
@@ -68,7 +70,7 @@ public class WorldRepository implements NewRepository {
     public byte[] getStorageBytes(RskAddress address, DataWord key) {
         AccountState accountState = this.getAccountState(address);
 
-        if (accountState == null || Arrays.equals(EMPTY_TRIE_HASH, accountState.getStateRoot())) {
+        if (Arrays.equals(EMPTY_TRIE_HASH, accountState.getStateRoot())) {
             return null;
         }
 
@@ -79,7 +81,7 @@ public class WorldRepository implements NewRepository {
         byte[] accountData = this.trie.get(address.getBytes());
 
         if (accountData == null) {
-            return null;
+            return new AccountState();
         }
 
         return new AccountState(accountData);
