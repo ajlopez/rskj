@@ -223,4 +223,47 @@ public class WorldRepositoryTest {
         Assert.assertNotNull(nonce);
         Assert.assertEquals(BigInteger.ONE, nonce);
     }
+
+    @Test
+    public void getUnknownAccountBalanceAsZero() {
+        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
+        WorldRepository repository = new WorldRepository(trie, trieStore);
+
+        Coin balance = repository.getAccountBalance(accountAddress);
+
+        Assert.assertNotNull(balance);
+        Assert.assertEquals(Coin.ZERO, balance);
+    }
+
+    @Test
+    public void getNewAccountBalanceAsZero() {
+        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
+        AccountState accountState = new AccountState();
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
+        trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
+        WorldRepository repository = new WorldRepository(trie, trieStore);
+
+        Coin balance = repository.getAccountBalance(accountAddress);
+
+        Assert.assertNotNull(balance);
+        Assert.assertEquals(Coin.ZERO, balance);
+    }
+
+    @Test
+    public void getAccountBalance() {
+        RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
+        AccountState accountState = new AccountState(BigInteger.ONE, new Coin(BigInteger.TEN));
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
+        trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
+        WorldRepository repository = new WorldRepository(trie, trieStore);
+
+        Coin balance = repository.getAccountBalance(accountAddress);
+
+        Assert.assertNotNull(balance);
+        Assert.assertEquals(new Coin(BigInteger.TEN), balance);
+    }
 }

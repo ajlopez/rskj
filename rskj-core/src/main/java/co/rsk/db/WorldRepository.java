@@ -30,7 +30,9 @@ public class WorldRepository implements NewRepository {
     }
 
     public Coin getAccountBalance(RskAddress address) {
-        throw new UnsupportedOperationException();
+        AccountState accountState = this.getAccountState(address);
+
+        return accountState.getBalance();
     }
 
     public BigInteger getAccountNonce(RskAddress address) {
