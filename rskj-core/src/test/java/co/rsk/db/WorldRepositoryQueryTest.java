@@ -20,12 +20,11 @@ import java.math.BigInteger;
  */
 public class WorldRepositoryQueryTest {
     private static RskAddress accountAddress = new RskAddress("0000000000000000000000000000000000001234");
+    private static Coin amountTen = new Coin(BigInteger.TEN);
 
     @Test
     public void getUnknownAccountCodeAsEmptyByteArray() {
-        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
-        Trie trie = new TrieImpl(trieStore, true);
-        WorldRepository repository = new WorldRepository(trie, trieStore);
+        WorldRepository repository = createRepository();
 
         byte[] code = repository.getAccountCode(new RskAddress("0000000000000000000000000000000000001234"));
 
@@ -35,11 +34,7 @@ public class WorldRepositoryQueryTest {
 
     @Test
     public void getNewAccountCodeAsEmptyByteArray() {
-        AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
-        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
-        Trie trie = new TrieImpl(trieStore, true);
-        trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
-        WorldRepository repository = new WorldRepository(trie, trieStore);
+        WorldRepository repository = createRepositoryWithNewAccount();
 
         byte[] code = repository.getAccountCode(new RskAddress("0000000000000000000000000000000000001234"));
 
@@ -90,9 +85,7 @@ public class WorldRepositoryQueryTest {
 
     @Test
     public void getUnknownAccountStorageValueAsNull() {
-        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
-        Trie trie = new TrieImpl(trieStore, true);
-        WorldRepository repository = new WorldRepository(trie, trieStore);
+        WorldRepository repository = createRepository();
 
         DataWord value = repository.getStorageValue(new RskAddress("0000000000000000000000000000000000001234"), DataWord.ONE);
 
@@ -101,11 +94,7 @@ public class WorldRepositoryQueryTest {
 
     @Test
     public void getNewAccountStorageValueAsNull() {
-        AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
-        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
-        Trie trie = new TrieImpl(trieStore, true);
-        trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
-        WorldRepository repository = new WorldRepository(trie, trieStore);
+        WorldRepository repository = createRepositoryWithNewAccount();
 
         DataWord value = repository.getStorageValue(accountAddress, DataWord.ONE);
 
@@ -139,11 +128,7 @@ public class WorldRepositoryQueryTest {
 
     @Test
     public void getNewAccountStorageBytesAsNull() {
-        AccountState accountState = new AccountState();
-        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
-        Trie trie = new TrieImpl(trieStore, true);
-        trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
-        WorldRepository repository = new WorldRepository(trie, trieStore);
+        WorldRepository repository = createRepositoryWithNewAccount();
 
         byte[] bytes = repository.getStorageBytes(accountAddress, DataWord.ONE);
 
@@ -178,9 +163,7 @@ public class WorldRepositoryQueryTest {
 
     @Test
     public void getUnknownAccountNonceAsZero() {
-        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
-        Trie trie = new TrieImpl(trieStore, true);
-        WorldRepository repository = new WorldRepository(trie, trieStore);
+        WorldRepository repository = createRepository();
 
         BigInteger nonce = repository.getAccountNonce(accountAddress);
 
@@ -190,11 +173,7 @@ public class WorldRepositoryQueryTest {
 
     @Test
     public void getNewAccountNonceAsZero() {
-        AccountState accountState = new AccountState();
-        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
-        Trie trie = new TrieImpl(trieStore, true);
-        trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
-        WorldRepository repository = new WorldRepository(trie, trieStore);
+        WorldRepository repository = createRepositoryWithNewAccount();
 
         BigInteger nonce = repository.getAccountNonce(accountAddress);
 
@@ -204,11 +183,7 @@ public class WorldRepositoryQueryTest {
 
     @Test
     public void getAccountNonce() {
-        AccountState accountState = new AccountState(BigInteger.ONE, Coin.ZERO);
-        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
-        Trie trie = new TrieImpl(trieStore, true);
-        trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
-        WorldRepository repository = new WorldRepository(trie, trieStore);
+        WorldRepository repository = createRepositoryWithAccount(BigInteger.ONE, amountTen);
 
         BigInteger nonce = repository.getAccountNonce(accountAddress);
 
@@ -218,9 +193,7 @@ public class WorldRepositoryQueryTest {
 
     @Test
     public void getUnknownAccountBalanceAsZero() {
-        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
-        Trie trie = new TrieImpl(trieStore, true);
-        WorldRepository repository = new WorldRepository(trie, trieStore);
+        WorldRepository repository = createRepository();
 
         Coin balance = repository.getAccountBalance(accountAddress);
 
@@ -230,11 +203,7 @@ public class WorldRepositoryQueryTest {
 
     @Test
     public void getNewAccountBalanceAsZero() {
-        AccountState accountState = new AccountState();
-        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
-        Trie trie = new TrieImpl(trieStore, true);
-        trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
-        WorldRepository repository = new WorldRepository(trie, trieStore);
+        WorldRepository repository = createRepositoryWithNewAccount();
 
         Coin balance = repository.getAccountBalance(accountAddress);
 
@@ -244,15 +213,33 @@ public class WorldRepositoryQueryTest {
 
     @Test
     public void getAccountBalance() {
-        AccountState accountState = new AccountState(BigInteger.ONE, new Coin(BigInteger.TEN));
-        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
-        Trie trie = new TrieImpl(trieStore, true);
-        trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
-        WorldRepository repository = new WorldRepository(trie, trieStore);
+        WorldRepository repository = createRepositoryWithAccount(BigInteger.ONE, amountTen);
 
         Coin balance = repository.getAccountBalance(accountAddress);
 
         Assert.assertNotNull(balance);
-        Assert.assertEquals(new Coin(BigInteger.TEN), balance);
+        Assert.assertEquals(amountTen, balance);
+    }
+
+    private static WorldRepository createRepository() {
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
+        return new WorldRepository(trie, trieStore);
+    }
+
+    private static WorldRepository createRepositoryWithNewAccount() {
+        AccountState accountState = new AccountState();
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
+        trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
+        return new WorldRepository(trie, trieStore);
+    }
+
+    private static WorldRepository createRepositoryWithAccount(BigInteger nonce, Coin balance) {
+        AccountState accountState = new AccountState(nonce, balance);
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
+        trie = trie.put(accountAddress.getBytes(), accountState.getEncoded());
+        return new WorldRepository(trie, trieStore);
     }
 }
