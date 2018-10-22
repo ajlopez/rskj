@@ -92,6 +92,12 @@ public class WorldRepository implements NewRepository {
         return accountState.getNonce();
     }
 
+    public Coin addToAccountBalance(RskAddress accountAddress, Coin amount) {
+        AccountState accountState = this.retrieveAccountState(accountAddress);
+
+        return accountState.addToBalance(amount);
+    }
+
     protected AccountState getAccountState(RskAddress accountAddress) {
         if (this.accountStates.containsKey(accountAddress)) {
             return this.accountStates.get(accountAddress);

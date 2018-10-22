@@ -22,4 +22,5 @@ public interface NewRepository {
 
     // Account update methods
     BigInteger incrementAccountNonce(RskAddress accountAddress);
+    Coin addToAccountBalance(RskAddress accountAddress, Coin amount);
 }

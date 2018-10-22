@@ -1,5 +1,6 @@
 package co.rsk.db;
 
+import co.rsk.core.Coin;
 import co.rsk.core.RskAddress;
 import co.rsk.trie.Trie;
 import co.rsk.trie.TrieImpl;
@@ -29,5 +30,22 @@ public class WorldRepositoryUpdateTest {
 
         Assert.assertNotNull(nonce);
         Assert.assertEquals(BigInteger.ONE, nonce);
+    }
+
+    @Test
+    public void addToAccountBalance() {
+        TrieStore trieStore = new TrieStoreImpl(new HashMapDB());
+        Trie trie = new TrieImpl(trieStore, true);
+        WorldRepository repository = new WorldRepository(trie, trieStore);
+
+        Coin result = repository.addToAccountBalance(accountAddress, new Coin(BigInteger.TEN));
+
+        Assert.assertNotNull(result);
+        Assert.assertEquals(new Coin(BigInteger.TEN), result);
+
+        Coin balance = repository.getAccountBalance(accountAddress);
+
+        Assert.assertNotNull(balance);
+        Assert.assertEquals(new Coin(BigInteger.TEN), balance);
     }
 }
