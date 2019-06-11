@@ -27,6 +27,7 @@ import co.rsk.core.bc.MiningMainchainView;
 import co.rsk.crypto.Keccak256;
 import co.rsk.peg.BridgeSupportFactory;
 import co.rsk.peg.PegTestUtils;
+import co.rsk.rpc.logs.LogFilterRequest;
 import co.rsk.rpc.modules.debug.DebugModule;
 import co.rsk.rpc.modules.debug.DebugModuleImpl;
 import co.rsk.rpc.modules.eth.EthModule;
@@ -183,7 +184,7 @@ public class Web3RskImplTest {
 
     @Test
     public void web3_FilterRequest_toString() {
-        Web3.FilterRequest filterRequest = new Web3.FilterRequest();
+        LogFilterRequest filterRequest = new LogFilterRequest();
 
         filterRequest.fromBlock = "1";
         filterRequest.toBlock = "2";

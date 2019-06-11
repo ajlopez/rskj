@@ -18,6 +18,7 @@
 
 package co.rsk.rpc;
 
+import co.rsk.rpc.logs.LogFilterRequest;
 import co.rsk.rpc.modules.eth.EthModule;
 import org.ethereum.rpc.Web3;
 import org.ethereum.rpc.dto.CompilationResultDTO;
@@ -116,7 +117,7 @@ public interface Web3EthModule {
 
     Map<String, CompilationResultDTO> eth_compileSerpent(String contract);
 
-    String eth_newFilter(Web3.FilterRequest fr) throws Exception;
+    String eth_newFilter(LogFilterRequest fr) throws Exception;
 
     String eth_newBlockFilter();
 
@@ -128,7 +129,7 @@ public interface Web3EthModule {
 
     Object[] eth_getFilterLogs(String id);
 
-    Object[] eth_getLogs(Web3.FilterRequest fr) throws Exception;
+    Object[] eth_getLogs(LogFilterRequest fr) throws Exception;
 
     BigInteger eth_netHashrate();
 

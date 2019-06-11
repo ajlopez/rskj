@@ -21,6 +21,7 @@ package org.ethereum.rpc;
 import co.rsk.core.RskAddress;
 import co.rsk.logfilter.BlocksBloom;
 import co.rsk.logfilter.BlocksBloomStore;
+import co.rsk.rpc.logs.LogFilterRequest;
 import org.ethereum.core.*;
 import org.ethereum.db.TransactionInfo;
 import org.ethereum.vm.LogInfo;
@@ -104,7 +105,7 @@ public class LogFilter extends Filter {
         //empty method
     }
 
-    public static LogFilter fromFilterRequest(Web3.FilterRequest fr, Blockchain blockchain, BlocksBloomStore blocksBloomStore) throws Exception {
+    public static LogFilter fromLogFilterRequest(LogFilterRequest fr, Blockchain blockchain, BlocksBloomStore blocksBloomStore) throws Exception {
         RskAddress[] addresses;
 
         // Now, there is an array of array of topics
@@ -182,7 +183,7 @@ public class LogFilter extends Filter {
         return filter;
     }
 
-    private static void retrieveHistoricalData(Web3.FilterRequest fr, Blockchain blockchain, LogFilter filter, BlocksBloomStore blocksBloomStore) throws Exception {
+    private static void retrieveHistoricalData(LogFilterRequest fr, Blockchain blockchain, LogFilter filter, BlocksBloomStore blocksBloomStore) throws Exception {
         Block blockFrom = isBlockWord(fr.fromBlock) ? null : Web3Impl.getBlockByNumberOrStr(fr.fromBlock, blockchain);
         Block blockTo = isBlockWord(fr.toBlock) ? null : Web3Impl.getBlockByNumberOrStr(fr.toBlock, blockchain);
 

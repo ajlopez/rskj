@@ -107,23 +107,6 @@ public interface Web3 extends Web3TxPoolModule, Web3EthModule, Web3EvmModule, We
         }
     }
 
-    class FilterRequest {
-        public String fromBlock;
-        public String toBlock;
-        public Object address;
-        public Object[] topics;
-
-        @Override
-        public String toString() {
-            return "FilterRequest{" +
-                    "fromBlock='" + fromBlock + '\'' +
-                    ", toBlock='" + toBlock + '\'' +
-                    ", address=" + address +
-                    ", topics=" + Arrays.toString(topics) +
-                    '}';
-        }
-    }
-
     void start();
 
     void stop();

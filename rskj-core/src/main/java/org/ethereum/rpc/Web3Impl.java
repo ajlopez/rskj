@@ -30,6 +30,7 @@ import co.rsk.mine.MinerClient;
 import co.rsk.mine.MinerServer;
 import co.rsk.net.BlockProcessor;
 import co.rsk.rpc.ModuleDescription;
+import co.rsk.rpc.logs.LogFilterRequest;
 import co.rsk.rpc.modules.debug.DebugModule;
 import co.rsk.rpc.modules.eth.EthModule;
 import co.rsk.rpc.modules.evm.EvmModule;
@@ -856,11 +857,11 @@ public class Web3Impl implements Web3 {
     }
 
     @Override
-    public String eth_newFilter(FilterRequest fr) throws Exception {
+    public String eth_newFilter(LogFilterRequest fr) throws Exception {
         String str = null;
 
         try {
-            Filter filter = LogFilter.fromFilterRequest(fr, blockchain, blocksBloomStore);
+            Filter filter = LogFilter.fromLogFilterRequest(fr, blockchain, blocksBloomStore);
             int id = filterManager.registerFilter(filter);
 
             return str = toJsonHex(id);
@@ -962,7 +963,7 @@ public class Web3Impl implements Web3 {
     }
 
     @Override
-    public Object[] eth_getLogs(FilterRequest fr) throws Exception {
+    public Object[] eth_getLogs(LogFilterRequest fr) throws Exception {
         logger.debug("eth_getLogs ...");
         String id = eth_newFilter(fr);
         Object[] ret = eth_getFilterLogs(id);
