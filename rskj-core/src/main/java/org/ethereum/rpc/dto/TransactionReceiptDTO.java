@@ -22,7 +22,7 @@ import co.rsk.core.RskAddress;
 import org.ethereum.core.Block;
 import org.ethereum.core.TransactionReceipt;
 import org.ethereum.db.TransactionInfo;
-import org.ethereum.rpc.LogFilterElement;
+import co.rsk.rpc.events.LogFilterElement;
 import org.ethereum.vm.LogInfo;
 
 import static org.ethereum.rpc.TypeConverter.toJsonHex;

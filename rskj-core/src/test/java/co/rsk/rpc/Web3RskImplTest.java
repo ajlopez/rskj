@@ -42,7 +42,7 @@ import org.ethereum.core.Blockchain;
 import org.ethereum.core.Transaction;
 import org.ethereum.crypto.HashUtil;
 import org.ethereum.db.BlockStore;
-import org.ethereum.rpc.LogFilterElement;
+import co.rsk.rpc.events.LogFilterElement;
 import org.ethereum.rpc.Web3;
 import org.ethereum.rpc.Web3Mocks;
 import org.ethereum.vm.DataWord;

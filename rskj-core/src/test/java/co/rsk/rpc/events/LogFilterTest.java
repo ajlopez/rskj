@@ -16,14 +16,14 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.ethereum.rpc;
+package co.rsk.rpc.events;
 
 import co.rsk.blockchain.utils.BlockGenerator;
 import co.rsk.core.RskAddress;
 import co.rsk.db.RepositoryLocator;
-import co.rsk.rpc.events.AddressesTopicsFilter;
 import org.ethereum.core.Block;
 import org.ethereum.core.Blockchain;
+import org.ethereum.rpc.Web3ImplLogsTest;
 import org.ethereum.util.RskTestFactory;
 import org.junit.Assert;
 import org.junit.Test;

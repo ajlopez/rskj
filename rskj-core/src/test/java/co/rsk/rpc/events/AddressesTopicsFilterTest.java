@@ -19,11 +19,9 @@
 package co.rsk.rpc.events;
 
 import co.rsk.core.RskAddress;
-import co.rsk.rpc.events.AddressesTopicsFilter;
 import co.rsk.test.builders.AccountBuilder;
 import org.ethereum.core.Account;
 import org.ethereum.core.Bloom;
-import org.ethereum.rpc.Topic;
 import org.junit.Assert;
 import org.junit.Test;
 

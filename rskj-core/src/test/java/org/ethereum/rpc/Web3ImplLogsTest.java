@@ -29,6 +29,7 @@ import co.rsk.logfilter.BlocksBloomStore;
 import co.rsk.peg.BridgeSupportFactory;
 import co.rsk.rpc.ExecutionBlockRetriever;
 import co.rsk.rpc.Web3RskImpl;
+import co.rsk.rpc.events.LogFilterElement;
 import co.rsk.rpc.events.LogFilterRequest;
 import co.rsk.rpc.modules.debug.DebugModule;
 import co.rsk.rpc.modules.debug.DebugModuleImpl;

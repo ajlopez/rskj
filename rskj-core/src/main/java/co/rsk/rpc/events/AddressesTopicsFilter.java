@@ -22,7 +22,6 @@ package co.rsk.rpc.events;
 import co.rsk.core.RskAddress;
 import org.ethereum.core.Bloom;
 import org.ethereum.crypto.Keccak256Helper;
-import org.ethereum.rpc.Topic;
 import org.ethereum.vm.DataWord;
 import org.ethereum.vm.LogInfo;
 
