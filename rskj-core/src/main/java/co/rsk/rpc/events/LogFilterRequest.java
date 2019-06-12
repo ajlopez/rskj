@@ -17,7 +17,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package co.rsk.rpc.logs;
+package co.rsk.rpc.events;
 
 import java.util.Arrays;
 

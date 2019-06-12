@@ -18,7 +18,7 @@
 
 package co.rsk.rpc;
 
-import co.rsk.rpc.logs.LogFilterRequest;
+import co.rsk.rpc.events.LogFilterRequest;
 import co.rsk.rpc.modules.eth.EthModule;
 import org.ethereum.rpc.Web3;
 import org.ethereum.rpc.dto.CompilationResultDTO;

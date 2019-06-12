@@ -17,11 +17,12 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.ethereum.rpc;
+package co.rsk.rpc.events;
 
 import co.rsk.core.RskAddress;
 import org.ethereum.core.Bloom;
 import org.ethereum.crypto.Keccak256Helper;
+import org.ethereum.rpc.Topic;
 import org.ethereum.vm.DataWord;
 import org.ethereum.vm.LogInfo;
 

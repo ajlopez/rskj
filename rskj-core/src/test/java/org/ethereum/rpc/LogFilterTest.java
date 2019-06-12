@@ -21,6 +21,7 @@ package org.ethereum.rpc;
 import co.rsk.blockchain.utils.BlockGenerator;
 import co.rsk.core.RskAddress;
 import co.rsk.db.RepositoryLocator;
+import co.rsk.rpc.events.AddressesTopicsFilter;
 import org.ethereum.core.Block;
 import org.ethereum.core.Blockchain;
 import org.ethereum.util.RskTestFactory;

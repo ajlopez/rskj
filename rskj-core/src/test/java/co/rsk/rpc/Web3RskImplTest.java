@@ -27,7 +27,7 @@ import co.rsk.core.bc.MiningMainchainView;
 import co.rsk.crypto.Keccak256;
 import co.rsk.peg.BridgeSupportFactory;
 import co.rsk.peg.PegTestUtils;
-import co.rsk.rpc.logs.LogFilterRequest;
+import co.rsk.rpc.events.LogFilterRequest;
 import co.rsk.rpc.modules.debug.DebugModule;
 import co.rsk.rpc.modules.debug.DebugModuleImpl;
 import co.rsk.rpc.modules.eth.EthModule;
