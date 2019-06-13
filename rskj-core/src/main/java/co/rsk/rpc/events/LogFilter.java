@@ -60,11 +60,11 @@ public class LogFilter extends Filter {
         this.toLatestBlock = toLatestBlock;
     }
 
-    void onLogMatch(LogInfo logInfo, Block b, int txIndex, Transaction tx, int logIdx) {
+    private void onLogMatch(LogInfo logInfo, Block b, int txIndex, Transaction tx, int logIdx) {
         add(new LogFilterEvent(new LogFilterElement(logInfo, b, txIndex, tx, logIdx)));
     }
 
-    void onTransaction(Transaction tx, Block b, int txIndex) {
+    private void onTransaction(Transaction tx, Block b, int txIndex) {
         TransactionInfo txInfo = blockchain.getTransactionInfo(tx.getHash().getBytes());
         TransactionReceipt receipt = txInfo.getReceipt();
 
@@ -79,7 +79,7 @@ public class LogFilter extends Filter {
         }
     }
 
-    void onBlock(Block b) {
+    private void onBlock(Block b) {
         if (addressesTopicsFilter.matchBloom(new Bloom(b.getLogBloom()))) {
             int txIdx = 0;
 

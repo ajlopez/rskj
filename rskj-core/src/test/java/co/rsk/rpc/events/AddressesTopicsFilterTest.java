@@ -22,9 +22,13 @@ import co.rsk.core.RskAddress;
 import co.rsk.test.builders.AccountBuilder;
 import org.ethereum.core.Account;
 import org.ethereum.core.Bloom;
+import org.ethereum.vm.DataWord;
+import org.ethereum.vm.LogInfo;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 /**
@@ -103,5 +107,103 @@ public class AddressesTopicsFilterTest {
             bytes[k] = (byte)0xff;
 
         return new Bloom(bytes);
+    }
+
+    @Test
+    public void firstTopicMatchExactly() {
+        Account account = new AccountBuilder().name("account").build();
+        Topic topic = createTopic();
+
+        AddressesTopicsFilter filter = new AddressesTopicsFilter(new RskAddress[0], new Topic[][] {{ topic }});
+
+        DataWord dataWordTopic = DataWord.valueOf(topic.getBytes());
+        List<DataWord> dataWordTopics = new ArrayList<>();
+        dataWordTopics.add(dataWordTopic);
+
+        LogInfo logInfo = new LogInfo(account.getAddress().getBytes(), dataWordTopics, null);
+
+        Assert.assertTrue(filter.matchesExactly(logInfo));
+    }
+
+    @Test
+    public void firstTopicWithSiblingMatchExactly() {
+        Account account = new AccountBuilder().name("account").build();
+        Topic topic = createTopic();
+        Topic topicb = createTopic();
+
+        AddressesTopicsFilter filter = new AddressesTopicsFilter(new RskAddress[0], new Topic[][] {{ topicb, topic }});
+
+        DataWord dataWordTopic = DataWord.valueOf(topic.getBytes());
+        List<DataWord> dataWordTopics = new ArrayList<>();
+        dataWordTopics.add(dataWordTopic);
+
+        LogInfo logInfo = new LogInfo(account.getAddress().getBytes(), dataWordTopics, null);
+
+        Assert.assertTrue(filter.matchesExactly(logInfo));
+    }
+
+    @Test
+    public void secondTopicMatchExactly() {
+        Account account = new AccountBuilder().name("account").build();
+        Topic topic1 = createTopic();
+        Topic topic2 = createTopic();
+
+        AddressesTopicsFilter filter = new AddressesTopicsFilter(new RskAddress[0], new Topic[][] {{ topic1 }, { topic2 }});
+
+        DataWord dataWordTopic1 = DataWord.valueOf(topic1.getBytes());
+        DataWord dataWordTopic2 = DataWord.valueOf(topic2.getBytes());
+
+        List<DataWord> dataWordTopics = new ArrayList<>();
+        dataWordTopics.add(dataWordTopic1);
+        dataWordTopics.add(dataWordTopic2);
+
+        LogInfo logInfo = new LogInfo(account.getAddress().getBytes(), dataWordTopics, null);
+
+        Assert.assertTrue(filter.matchesExactly(logInfo));
+    }
+
+    @Test
+    public void firstTopicDoNotMatchExactly() {
+        Account account = new AccountBuilder().name("account").build();
+        Topic topic1 = createTopic();
+        Topic topic2 = createTopic();
+
+        AddressesTopicsFilter filter = new AddressesTopicsFilter(new RskAddress[0], new Topic[][] {{ topic1 }, { topic2 }});
+
+        DataWord dataWordTopic2 = DataWord.valueOf(topic2.getBytes());
+
+        List<DataWord> dataWordTopics = new ArrayList<>();
+        dataWordTopics.add(dataWordTopic2);
+
+        LogInfo logInfo = new LogInfo(account.getAddress().getBytes(), dataWordTopics, null);
+
+        Assert.assertFalse(filter.matchesExactly(logInfo));
+    }
+
+    @Test
+    public void accountAddressMatchExactly() {
+        Account account = new AccountBuilder().name("account").build();
+
+        AddressesTopicsFilter filter = new AddressesTopicsFilter(new RskAddress[] { account.getAddress() }, new Topic[][] {{}, {}});
+
+        List<DataWord> dataWordTopics = new ArrayList<>();
+
+        LogInfo logInfo = new LogInfo(account.getAddress().getBytes(), dataWordTopics, null);
+
+        Assert.assertTrue(filter.matchesExactly(logInfo));
+    }
+
+    @Test
+    public void accountAddressDoNotMatchExactly() {
+        Account account = new AccountBuilder().name("account").build();
+        Account accountb = new AccountBuilder().name("accountb").build();
+
+        AddressesTopicsFilter filter = new AddressesTopicsFilter(new RskAddress[] { account.getAddress() }, new Topic[][] {{}, {}});
+
+        List<DataWord> dataWordTopics = new ArrayList<>();
+
+        LogInfo logInfo = new LogInfo(accountb.getAddress().getBytes(), dataWordTopics, null);
+
+        Assert.assertFalse(filter.matchesExactly(logInfo));
     }
 }
