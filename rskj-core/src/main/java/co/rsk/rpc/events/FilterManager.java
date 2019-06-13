@@ -18,7 +18,6 @@
 
 package co.rsk.rpc.events;
 
-import co.rsk.rpc.events.Filter;
 import org.ethereum.core.Block;
 import org.ethereum.core.Transaction;
 import org.ethereum.core.TransactionReceipt;

@@ -45,6 +45,8 @@ public class SimpleEthereum implements Ethereum {
         this.blockchain = blockchain;
     }
 
+    public EthereumListener getListener() { return this.listener; }
+
     @Override
     public void addListener(EthereumListener listener) {
         if (this.listener == null) {
