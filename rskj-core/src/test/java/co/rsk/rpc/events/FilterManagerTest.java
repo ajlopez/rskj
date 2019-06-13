@@ -18,6 +18,11 @@
 
 package co.rsk.rpc.events;
 
+import co.rsk.core.bc.BlockChainImpl;
+import co.rsk.test.builders.BlockBuilder;
+import co.rsk.test.builders.BlockChainBuilder;
+import org.ethereum.core.Block;
+import org.ethereum.core.Genesis;
 import org.ethereum.listener.EthereumListener;
 import org.ethereum.rpc.Simples.SimpleEthereum;
 import org.junit.Assert;
@@ -78,5 +83,29 @@ public class FilterManagerTest {
         filterManager.removeFilter(id);
 
         Assert.assertNull(filterManager.getFilterEvents(1, false));
+    }
+
+    @Test
+    public void processNewBlock() {
+        SimpleEthereum simpleEthereum = new SimpleEthereum();
+        FilterManager filterManager = new FilterManager(simpleEthereum);
+
+        NewBlockFilter newBlockFilter = new NewBlockFilter();
+
+        int id = filterManager.registerFilter(newBlockFilter);
+
+        BlockChainImpl blockChain = new BlockChainBuilder().build();
+        Genesis genesis = (Genesis) blockChain.getBestBlock();
+        Block block = new BlockBuilder().parent(genesis).build();
+
+        filterManager.newBlockReceived(block);
+
+        Object[] events = filterManager.getFilterEvents(id, false);
+
+        Assert.assertNotNull(events);
+        Assert.assertEquals(1, events.length);
+        Assert.assertTrue(events[0] instanceof String);
+
+        Assert.assertEquals("0x" + block.getHash().toHexString(), events[0]);
     }
 }
