@@ -79,7 +79,7 @@ public class LogFilter extends Filter {
         }
     }
 
-    private void onBlock(Block b) {
+    public void onBlock(Block b) {
         if (addressesTopicsFilter.matchBloom(new Bloom(b.getLogBloom()))) {
             int txIdx = 0;
 
@@ -179,70 +179,12 @@ public class LogFilter extends Filter {
 
         LogFilter filter = new LogFilter(addressesTopicsFilter, blockchain, fromLatestBlock, toLatestBlock);
 
-        retrieveHistoricalData(fr, blockchain, filter, blocksBloomStore);
+        LogRetriever.retrieveHistoricalData(fr, blockchain, filter, blocksBloomStore);
 
         return filter;
     }
 
-    private static void retrieveHistoricalData(LogFilterRequest fr, Blockchain blockchain, LogFilter filter, BlocksBloomStore blocksBloomStore) throws Exception {
-        Block blockFrom = isBlockWord(fr.fromBlock) ? null : Web3Impl.getBlockByNumberOrStr(fr.fromBlock, blockchain);
-        Block blockTo = isBlockWord(fr.toBlock) ? null : Web3Impl.getBlockByNumberOrStr(fr.toBlock, blockchain);
-
-        if (blockFrom == null && "earliest".equalsIgnoreCase(fr.fromBlock)) {
-            blockFrom = blockchain.getBlockByNumber(0);
-        }
-
-        if (blockFrom != null) {
-            // need to add historical data
-            blockTo = blockTo == null ? blockchain.getBestBlock() : blockTo;
-
-            processBlocks(blockFrom.getNumber(), blockTo.getNumber(), filter, blockchain, blocksBloomStore);
-        }
-        else if ("latest".equalsIgnoreCase(fr.fromBlock)) {
-            filter.onBlock(blockchain.getBestBlock());
-        }
-    }
-
-    private static void processBlocks(long fromBlockNumber, long toBlockNumber, LogFilter filter, Blockchain blockchain, BlocksBloomStore blocksBloomStore) {
-        BlocksBloom auxiliaryBlocksBloom = null;
-        long bestBlockNumber = blockchain.getBestBlock().getNumber();
-
-        for (long blockNum = fromBlockNumber; blockNum <= toBlockNumber; blockNum++) {
-            boolean isConfirmedBlock = blockNum <= bestBlockNumber - blocksBloomStore.getNoConfirmations();
-
-            if (isConfirmedBlock) {
-                if (blocksBloomStore.firstNumberInRange(blockNum) == blockNum) {
-                    if (blocksBloomStore.hasBlockNumber(blockNum)) {
-                        BlocksBloom blocksBloom = blocksBloomStore.getBlocksBloomByNumber(blockNum);
-
-                        if (!filter.addressesTopicsFilter.matchBloom(blocksBloom.getBloom())) {
-                            blockNum = blocksBloomStore.lastNumberInRange(blockNum);
-                            continue;
-                        }
-                    }
-
-                    auxiliaryBlocksBloom = new BlocksBloom();
-                }
-
-                Block block = blockchain.getBlockByNumber(blockNum);
-
-                if (auxiliaryBlocksBloom != null) {
-                    auxiliaryBlocksBloom.addBlockBloom(blockNum, new Bloom(block.getLogBloom()));
-                }
-
-                if (auxiliaryBlocksBloom != null && blocksBloomStore.lastNumberInRange(blockNum) == blockNum) {
-                    blocksBloomStore.setBlocksBloom(auxiliaryBlocksBloom);
-                }
-
-                filter.onBlock(block);
-            }
-            else {
-                filter.onBlock(blockchain.getBlockByNumber(blockNum));
-            }
-        }
-    }
-
-    private static boolean isBlockWord(String id) {
-        return "latest".equalsIgnoreCase(id) || "pending".equalsIgnoreCase(id) || "earliest".equalsIgnoreCase(id);
+    public boolean matchBloom(Bloom bloom) {
+        return this.addressesTopicsFilter.matchBloom(bloom);
     }
 }
