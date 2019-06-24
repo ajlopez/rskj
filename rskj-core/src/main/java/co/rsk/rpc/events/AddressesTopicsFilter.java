@@ -107,7 +107,7 @@ public class AddressesTopicsFilter {
         return true;
     }
 
-    boolean matchesContractAddress(RskAddress toAddr) {
+    private boolean matchesContractAddress(RskAddress toAddr) {
         for (RskAddress address : addresses) {
             if (address.equals(toAddr)) {
                 return true;

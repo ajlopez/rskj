@@ -36,14 +36,17 @@ import java.util.Random;
  */
 public class AddressesTopicsFilterTest {
     @Test
-    public void matchAddress() {
-        Account account = new AccountBuilder().name("account").build();
-        RskAddress address = account.getAddress();
+    public void matchAddressExactly() {
+        RskAddress address = new AccountBuilder().name("account").build().getAddress();
+        RskAddress address2 = new AccountBuilder().name("account2").build().getAddress();
 
         AddressesTopicsFilter filter = new AddressesTopicsFilter(new RskAddress[] { address }, null);
 
-        Assert.assertTrue(filter.matchesContractAddress(address));
-        Assert.assertFalse(filter.matchesContractAddress(RskAddress.nullAddress()));
+        LogInfo logInfo = new LogInfo(address.getBytes(), null, null);
+        LogInfo logInfo2 = new LogInfo(address2.getBytes(), null, null);
+
+        Assert.assertTrue(filter.matchesExactly(logInfo));
+        Assert.assertFalse(filter.matchesExactly(logInfo2));
     }
 
     @Test
