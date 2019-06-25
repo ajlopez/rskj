@@ -106,7 +106,7 @@ public class LogFilter extends Filter {
         //empty method
     }
 
-    public static LogFilter fromLogFilterRequest(LogFilterRequest fr, Blockchain blockchain, BlocksBloomStore blocksBloomStore) throws Exception {
+    public static LogFilter fromLogFilterRequest(LogFilterRequest fr, Blockchain blockchain) throws Exception {
         RskAddress[] addresses;
 
         // Now, there is an array of array of topics
@@ -178,8 +178,6 @@ public class LogFilter extends Filter {
         boolean toLatestBlock = "latest".equalsIgnoreCase(fr.toBlock);
 
         LogFilter filter = new LogFilter(addressesTopicsFilter, blockchain, fromLatestBlock, toLatestBlock);
-
-        LogRetriever.retrieveHistoricalData(fr, blockchain, filter, blocksBloomStore);
 
         return filter;
     }

@@ -48,6 +48,7 @@ import co.rsk.peg.BridgeSupportFactory;
 import co.rsk.peg.BtcBlockStoreWithCache;
 import co.rsk.peg.RepositoryBtcBlockStoreWithCache;
 import co.rsk.rpc.*;
+import co.rsk.rpc.events.LogRetriever;
 import co.rsk.rpc.modules.debug.DebugModule;
 import co.rsk.rpc.modules.debug.DebugModuleImpl;
 import co.rsk.rpc.modules.eth.*;
@@ -211,6 +212,7 @@ public class RskContext implements NodeBootstrapper {
     private MinerServer minerServer;
     private SolidityCompiler solidityCompiler;
     private BlocksBloomStore blocksBloomStore;
+    private LogRetriever logRetriever;
     private BlockExecutor blockExecutor;
     private BtcBlockStoreWithCache.Factory btcBlockStoreFactory;
     private PrecompiledContracts precompiledContracts;
@@ -666,6 +668,14 @@ public class RskContext implements NodeBootstrapper {
         return compositeEthereumListener;
     }
 
+    public LogRetriever getLogRetriever() {
+        if (logRetriever == null) {
+            logRetriever = new LogRetriever(getBlockchain(), getBlocksBloomStore());
+        }
+
+        return logRetriever;
+    }
+
     public BlocksBloomStore getBlocksBloomStore() {
         if (blocksBloomStore == null) {
             blocksBloomStore = new BlocksBloomStore(64, 20);
@@ -727,7 +737,7 @@ public class RskContext implements NodeBootstrapper {
                 getHashRateCalculator(),
                 getConfigCapabilities(),
                 getBuildInfo(),
-                getBlocksBloomStore()
+                getLogRetriever()
         );
     }
 

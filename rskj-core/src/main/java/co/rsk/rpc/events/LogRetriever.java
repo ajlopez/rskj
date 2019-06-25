@@ -29,43 +29,47 @@ import org.ethereum.rpc.Web3Impl;
  * Created by ajlopez on 24/04/2019.
  */
 public class LogRetriever {
-    private LogRetriever() {
+    private final Blockchain blockchain;
+    private final BlocksBloomStore blocksBloomStore;
 
+    public LogRetriever(Blockchain blockchain, BlocksBloomStore blocksBloomStore) {
+        this.blockchain = blockchain;
+        this.blocksBloomStore = blocksBloomStore;
     }
 
-    public static void retrieveHistoricalData(LogFilterRequest fr, Blockchain blockchain, LogFilter filter, BlocksBloomStore blocksBloomStore) throws Exception {
+    public void retrieveHistoricalData(LogFilterRequest fr, LogFilter filter) throws Exception {
         Block blockFrom = isBlockWord(fr.fromBlock) ? null : Web3Impl.getBlockByNumberOrStr(fr.fromBlock, blockchain);
         Block blockTo = isBlockWord(fr.toBlock) ? null : Web3Impl.getBlockByNumberOrStr(fr.toBlock, blockchain);
 
         if (blockFrom == null && "earliest".equalsIgnoreCase(fr.fromBlock)) {
-            blockFrom = blockchain.getBlockByNumber(0);
+            blockFrom = this.blockchain.getBlockByNumber(0);
         }
 
         if (blockFrom != null) {
             // need to add historical data
-            blockTo = blockTo == null ? blockchain.getBestBlock() : blockTo;
+            blockTo = blockTo == null ? this.blockchain.getBestBlock() : blockTo;
 
-            processBlocks(blockFrom.getNumber(), blockTo.getNumber(), filter, blockchain, blocksBloomStore);
+            this.processBlocks(blockFrom.getNumber(), blockTo.getNumber(), filter);
         }
         else if ("latest".equalsIgnoreCase(fr.fromBlock)) {
-            filter.onBlock(blockchain.getBestBlock());
+            filter.onBlock(this.blockchain.getBestBlock());
         }
     }
 
-    private static void processBlocks(long fromBlockNumber, long toBlockNumber, LogFilter filter, Blockchain blockchain, BlocksBloomStore blocksBloomStore) {
+    private void processBlocks(long fromBlockNumber, long toBlockNumber, LogFilter filter) {
         BlocksBloom auxiliaryBlocksBloom = null;
-        long bestBlockNumber = blockchain.getBestBlock().getNumber();
+        long bestBlockNumber = this.blockchain.getBestBlock().getNumber();
 
         for (long blockNum = fromBlockNumber; blockNum <= toBlockNumber; blockNum++) {
             boolean isConfirmedBlock = blockNum <= bestBlockNumber - blocksBloomStore.getNoConfirmations();
 
             if (isConfirmedBlock) {
-                if (blocksBloomStore.firstNumberInRange(blockNum) == blockNum) {
-                    if (blocksBloomStore.hasBlockNumber(blockNum)) {
-                        BlocksBloom blocksBloom = blocksBloomStore.getBlocksBloomByNumber(blockNum);
+                if (this.blocksBloomStore.firstNumberInRange(blockNum) == blockNum) {
+                    if (this.blocksBloomStore.hasBlockNumber(blockNum)) {
+                        BlocksBloom blocksBloom = this.blocksBloomStore.getBlocksBloomByNumber(blockNum);
 
                         if (!filter.matchBloom(blocksBloom.getBloom())) {
-                            blockNum = blocksBloomStore.lastNumberInRange(blockNum);
+                            blockNum = this.blocksBloomStore.lastNumberInRange(blockNum);
                             continue;
                         }
                     }
@@ -73,20 +77,20 @@ public class LogRetriever {
                     auxiliaryBlocksBloom = new BlocksBloom();
                 }
 
-                Block block = blockchain.getBlockByNumber(blockNum);
+                Block block = this.blockchain.getBlockByNumber(blockNum);
 
                 if (auxiliaryBlocksBloom != null) {
                     auxiliaryBlocksBloom.addBlockBloom(blockNum, new Bloom(block.getLogBloom()));
                 }
 
-                if (auxiliaryBlocksBloom != null && blocksBloomStore.lastNumberInRange(blockNum) == blockNum) {
-                    blocksBloomStore.setBlocksBloom(auxiliaryBlocksBloom);
+                if (auxiliaryBlocksBloom != null && this.blocksBloomStore.lastNumberInRange(blockNum) == blockNum) {
+                    this.blocksBloomStore.setBlocksBloom(auxiliaryBlocksBloom);
                 }
 
                 filter.onBlock(block);
             }
             else {
-                filter.onBlock(blockchain.getBlockByNumber(blockNum));
+                filter.onBlock(this.blockchain.getBlockByNumber(blockNum));
             }
         }
     }

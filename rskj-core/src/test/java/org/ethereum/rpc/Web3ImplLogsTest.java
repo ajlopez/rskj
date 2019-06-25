@@ -31,6 +31,7 @@ import co.rsk.rpc.ExecutionBlockRetriever;
 import co.rsk.rpc.Web3RskImpl;
 import co.rsk.rpc.events.LogFilterElement;
 import co.rsk.rpc.events.LogFilterRequest;
+import co.rsk.rpc.events.LogRetriever;
 import co.rsk.rpc.modules.debug.DebugModule;
 import co.rsk.rpc.modules.debug.DebugModuleImpl;
 import co.rsk.rpc.modules.eth.EthModule;
@@ -983,7 +984,7 @@ public class Web3ImplLogsTest {
                 null,
                 new SimpleConfigCapabilities(),
                 null,
-                new BlocksBloomStore(2, 0)
+                new LogRetriever(blockChain, new BlocksBloomStore(2, 0))
         );
     }
 

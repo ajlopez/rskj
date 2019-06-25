@@ -100,7 +100,7 @@ public class Web3Impl implements Web3 {
     private final FilterManager filterManager;
     private final BuildInfo buildInfo;
 
-    private final BlocksBloomStore blocksBloomStore;
+    private final LogRetriever logRetriever;
 
     private final PersonalModule personalModule;
     private final EthModule ethModule;
@@ -132,7 +132,7 @@ public class Web3Impl implements Web3 {
             HashRateCalculator hashRateCalculator,
             ConfigCapabilities configCapabilities,
             BuildInfo buildInfo,
-            BlocksBloomStore blocksBloomStore) {
+            LogRetriever logRetriever) {
         this.eth = eth;
         this.blockchain = blockchain;
         this.blockStore = blockStore;
@@ -156,7 +156,7 @@ public class Web3Impl implements Web3 {
         this.config = config;
         this.filterManager = new FilterManager(eth);
         this.buildInfo = buildInfo;
-        this.blocksBloomStore = blocksBloomStore;
+        this.logRetriever = logRetriever;
         initialBlockNumber = this.blockchain.getBestBlock().getNumber();
 
         personalModule.init();
@@ -861,7 +861,8 @@ public class Web3Impl implements Web3 {
         String str = null;
 
         try {
-            Filter filter = LogFilter.fromLogFilterRequest(fr, blockchain, blocksBloomStore);
+            LogFilter filter = LogFilter.fromLogFilterRequest(fr, blockchain);
+            logRetriever.retrieveHistoricalData(fr, filter);
             int id = filterManager.registerFilter(filter);
 
             return str = toJsonHex(id);
