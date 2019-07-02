@@ -19,6 +19,7 @@
 package co.rsk.rpc.events;
 
 import co.rsk.logfilter.BlocksBloomStore;
+import co.rsk.test.builders.BlockChainBuilder;
 import org.ethereum.core.Blockchain;
 import org.ethereum.util.RskTestContext;
 import org.junit.Assert;
@@ -26,31 +27,45 @@ import org.junit.Before;
 import org.junit.Test;
 
 /**
- * Created by Angel on 6/26/2019.
+ * Created by ajlopez on 26/06/2019.
  */
 public class LogRetrieverTest {
-    private Blockchain blockChain;
-    private BlocksBloomStore blocksBloomStore;
-
-    @Before
-    public void setUp() {
-        RskTestContext context = new RskTestContext(new String[0]);
-        this.blockChain = context.getBlockchain();
-        this.blocksBloomStore = new BlocksBloomStore(2, 0);
-    }
-
     @Test
     public void retrieveLogsFromEmptyBlockchain() throws Exception {
-        LogRetriever logRetriever = new LogRetriever(this.blockChain, this.blocksBloomStore);
+        BlocksBloomStore blocksBloomStore = new BlocksBloomStore(2, 0);
+        Blockchain blockchain = BlockChainBuilder.ofSize(0);
+        LogRetriever logRetriever = new LogRetriever(blockchain, blocksBloomStore);
         LogFilterRequest logFilterRequest = new LogFilterRequest();
 
         logFilterRequest.fromBlock = "earliest";
         logFilterRequest.toBlock = "latest";
 
-        LogFilter logFilter = LogFilter.fromLogFilterRequest(logFilterRequest, this.blockChain);
+        LogFilter logFilter = LogFilter.fromLogFilterRequest(logFilterRequest, blockchain);
 
         logRetriever.retrieveHistoricalData(logFilterRequest, logFilter);
 
         Assert.assertFalse(blocksBloomStore.hasBlockNumber(1));
+    }
+
+    @Test
+    public void retrieveLogsFromBlockchainWithFourBlocks() throws Exception {
+        int nblocks = 10;
+        BlocksBloomStore blocksBloomStore = new BlocksBloomStore(2, 0);
+        Blockchain blockchain = BlockChainBuilder.ofSize(nblocks);
+        Assert.assertEquals(10, blockchain.getBestBlock().getNumber());
+        LogRetriever logRetriever = new LogRetriever(blockchain, blocksBloomStore);
+        LogFilterRequest logFilterRequest = new LogFilterRequest();
+
+        logFilterRequest.fromBlock = "earliest";
+        logFilterRequest.toBlock = "latest";
+
+        LogFilter logFilter = LogFilter.fromLogFilterRequest(logFilterRequest, blockchain);
+
+        logRetriever.retrieveHistoricalData(logFilterRequest, logFilter);
+
+        for (int nblock = 0; nblock < nblocks; nblock++)
+            Assert.assertTrue(blocksBloomStore.hasBlockNumber(nblock));
+
+        Assert.assertFalse(blocksBloomStore.hasBlockNumber(nblocks + 1));
     }
 }
