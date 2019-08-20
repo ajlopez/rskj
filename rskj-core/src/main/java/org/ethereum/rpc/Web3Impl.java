@@ -627,6 +627,23 @@ public class Web3Impl implements Web3 {
     }
 
     @Override
+    public String eth_getRawBlockHeaderByHash(String blockHash) throws Exception {
+        String s = null;
+
+        try {
+            Block b = getBlockByJSonHash(blockHash);
+
+            s = Hex.toHexString(b.getHeader().getEncoded());
+
+            return s;
+        } finally {
+            if (logger.isDebugEnabled()) {
+                logger.debug("eth_getRawBlockHeaderByHash({}): {}", blockHash, s);
+            }
+        }
+    }
+
+    @Override
     public BlockResult eth_getBlockByNumber(String bnOrId, Boolean fullTransactionObjects) throws Exception {
         BlockResult s = null;
         try {

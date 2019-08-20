@@ -104,6 +104,8 @@ public interface Web3EthModule {
 
     Web3.BlockResult eth_getBlockByNumber(String bnOrId, Boolean fullTransactionObjects) throws Exception;
 
+    String eth_getRawBlockHeaderByHash(String blockHash) throws Exception;
+
     TransactionResultDTO eth_getTransactionByHash(String transactionHash) throws Exception;
 
     TransactionResultDTO eth_getTransactionByBlockHashAndIndex(String blockHash, String index) throws Exception;
