@@ -644,6 +644,25 @@ public class Web3Impl implements Web3 {
     }
 
     @Override
+    public String eth_getRawTransactionReceiptByHash(String transactionHash) throws Exception {
+        String s = null;
+
+        try {
+            Keccak256 txHash = new Keccak256(stringHexToByteArray(transactionHash));
+
+            TransactionInfo txInfo = this.receiptStore.getInMainChain(txHash.getBytes(), blockStore);
+
+            s = Hex.toHexString(txInfo.getReceipt().getEncoded());
+
+            return s;
+        } finally {
+            if (logger.isDebugEnabled()) {
+                logger.debug("eth_getRawTransactionReceiptByHash({}): {}", transactionHash, s);
+            }
+        }
+    }
+
+    @Override
     public BlockResult eth_getBlockByNumber(String bnOrId, Boolean fullTransactionObjects) throws Exception {
         BlockResult s = null;
         try {
