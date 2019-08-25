@@ -108,6 +108,8 @@ public interface Web3EthModule {
 
     String eth_getRawTransactionReceiptByHash(String transactionHash) throws Exception;
 
+    String[] eth_getTransactionReceiptNodesByHash(String blockHash, String transactionHash) throws Exception;
+
     TransactionResultDTO eth_getTransactionByHash(String transactionHash) throws Exception;
 
     TransactionResultDTO eth_getTransactionByBlockHashAndIndex(String blockHash, String index) throws Exception;
