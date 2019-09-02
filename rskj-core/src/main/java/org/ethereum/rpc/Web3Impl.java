@@ -637,7 +637,7 @@ public class Web3Impl implements Web3 {
         try {
             Block b = getBlockByJSonHash(blockHash);
 
-            s = Hex.toHexString(b.getHeader().getEncoded());
+            s = Hex.toHexString(b.getHeader().getEncoded(true, false));
 
             return s;
         } finally {
