@@ -83,7 +83,7 @@ public class TrieStoreImpl implements TrieStore {
         }
 
         this.store.put(trie.getHash().getBytes(), trie.toMessage());
-        savedTries.add(trie);
+        // savedTries.add(trie);
     }
 
     @Override
@@ -101,7 +101,7 @@ public class TrieStoreImpl implements TrieStore {
         }
 
         Trie trie = Trie.fromMessage(message, this);
-        savedTries.add(trie);
+        // savedTries.add(trie);
         return trie;
     }
 
