@@ -99,11 +99,15 @@ public class MessageVisitor {
             return;
         }
 
+/* TODO Experimental remove
+   the validation is executed inside BlockchainImpl
+   TODO record event in blockchain processing?
         if (!isValidBlock(block)) {
             logger.trace("Invalid block {} {}", blockNumber, block.getShortHash());
             recordEvent(sender, EventType.INVALID_BLOCK);
             return;
         }
+*/
 
         if (blockProcessor.canBeIgnoredForUnclesRewards(block.getNumber())){
             logger.trace("Block ignored: too far from best block {} {}", blockNumber, block.getShortHash());
