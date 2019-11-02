@@ -356,7 +356,7 @@ public class SyncProcessorImpl implements SyncProcessor, SyncEventsHandler {
         return sent;
     }
 
-    private boolean sendMessageTo(NodeID nodeID, MessageWithId message) {
+    private boolean sendMessageTo(NodeID nodeID, Message message) {
         return channelManager.sendMessageTo(nodeID, message);
     }
 

@@ -22,7 +22,7 @@ package org.ethereum.net.server;
 import co.rsk.config.InternalService;
 import co.rsk.net.NodeID;
 import co.rsk.net.Status;
-import co.rsk.net.messages.MessageWithId;
+import co.rsk.net.messages.Message;
 import org.ethereum.core.Block;
 import org.ethereum.core.BlockIdentifier;
 import org.ethereum.core.Transaction;
@@ -77,7 +77,7 @@ public interface ChannelManager extends InternalService {
 
     Collection<Channel> getActivePeers();
 
-    boolean sendMessageTo(NodeID nodeID, MessageWithId message);
+    boolean sendMessageTo(NodeID nodeID, Message message);
 
     boolean isAddressBlockAvailable(InetAddress address);
 }
