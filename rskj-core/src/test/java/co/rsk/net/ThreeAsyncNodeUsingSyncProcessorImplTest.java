@@ -32,7 +32,7 @@ import org.junit.Test;
 import java.util.Random;
 
 
-public class ThreeAsyncNodeUsingSyncProcessorTest {
+public class ThreeAsyncNodeUsingSyncProcessorImplTest {
 
     @Test
     public void synchronizeNewNodesInAChain() {

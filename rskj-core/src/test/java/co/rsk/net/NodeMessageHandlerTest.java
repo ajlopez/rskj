@@ -323,7 +323,7 @@ public class NodeMessageHandlerTest {
         BlockSyncService blockSyncService = new BlockSyncService(config, store, blockchain, nodeInformation, syncConfiguration);
         final NodeBlockProcessor bp = new NodeBlockProcessor(store, blockchain, nodeInformation, blockSyncService, syncConfiguration);
         final SimpleMessageChannel sender = new SimpleMessageChannel();
-        final SyncProcessor syncProcessor = new SyncProcessor(
+        final SyncProcessorImpl syncProcessor = new SyncProcessorImpl(
                 blockchain,
                 mock(BlockStore.class), mock(ConsensusValidationMainchainView.class),
                 blockSyncService,

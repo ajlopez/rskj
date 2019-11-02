@@ -32,7 +32,7 @@ public class MessageVisitorTest {
     private ChannelManager channelManager;
     private PeerScoringManager peerScoringManager;
     private TransactionGateway transactionGateway;
-    private SyncProcessor syncProcessor;
+    private SyncProcessorImpl syncProcessor;
     private BlockProcessor blockProcessor;
     private RskSystemProperties config;
 
@@ -40,7 +40,7 @@ public class MessageVisitorTest {
     public void setUp() {
         config = mock(RskSystemProperties.class);
         blockProcessor = mock(BlockProcessor.class);
-        syncProcessor = mock(SyncProcessor.class);
+        syncProcessor = mock(SyncProcessorImpl.class);
         transactionGateway = mock(TransactionGateway.class);
         peerScoringManager = mock(PeerScoringManager.class);
         channelManager = mock(ChannelManager.class);

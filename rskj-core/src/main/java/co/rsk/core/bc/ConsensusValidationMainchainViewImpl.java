@@ -43,7 +43,7 @@ public class ConsensusValidationMainchainViewImpl implements ConsensusValidation
 
     /**
      * Design decision note. headers for blocks not yet added to the blockchain are not in the BlockStore.
-     * These headers are in a collection used by the SyncProcessor and friends.
+     * These headers are in a collection used by the SyncProcessorImpl and friends.
      * Sync process creates a new version of this collection periodically and that is why a setter is needed.
      */
     public void setPendingHeaders(Map<Keccak256, BlockHeader> pendingHeadersByHash) {

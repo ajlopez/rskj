@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * This is mostly a workaround because SyncProcessor needs to access MessageChannel instances.
+ * This is mostly a workaround because SyncProcessorImpl needs to access MessageChannel instances.
  * TODO(mc) remove this after the logical node abstraction is created, since it will wrap
  *     things such as the underlying communication channel.
  */

@@ -55,7 +55,7 @@ public class BlockSyncService {
     private final BlockNodeInformation nodeInformation; // keep tabs on which nodes know which blocks.
     private final RskSystemProperties config;
 
-    // this is tightly coupled with NodeProcessorService and SyncProcessor,
+    // this is tightly coupled with NodeProcessorService and SyncProcessorImpl,
     // and we should use the same objects everywhere to ensure consistency
     public BlockSyncService(
             @Nonnull final RskSystemProperties config,

@@ -36,7 +36,7 @@ import java.util.List;
 /**
  * Created by ajlopez on 9/3/2017.
  */
-public class TwoAsyncNodeUsingSyncProcessorTest {
+public class TwoAsyncNodeUsingSyncProcessorImplTest {
 
     private static Block getGenesis() {
         final World world = new World();

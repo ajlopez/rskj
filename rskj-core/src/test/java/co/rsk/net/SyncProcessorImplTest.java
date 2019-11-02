@@ -45,7 +45,7 @@ import static org.mockito.Mockito.*;
 /**
  * Created by ajlopez on 29/08/2017.
  */
-public class SyncProcessorTest {
+public class SyncProcessorImplTest {
 
     private static final TestSystemProperties config = new TestSystemProperties();
     private static final BlockFactory blockFactory = new BlockFactory(config.getActivationConfig());
@@ -58,7 +58,7 @@ public class SyncProcessorTest {
         BlockNodeInformation nodeInformation = new BlockNodeInformation();
         TestSystemProperties config = new TestSystemProperties();
         BlockSyncService blockSyncService = new BlockSyncService(config, store, blockchain, nodeInformation, SyncConfiguration.IMMEDIATE_FOR_TESTING);
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), blockSyncService, getChannelManager(),
                 SyncConfiguration.IMMEDIATE_FOR_TESTING, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -100,7 +100,7 @@ public class SyncProcessorTest {
             return true;
         });
 
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, blockStore, mock(ConsensusValidationMainchainView.class), blockSyncService, channelManager,
                 SyncConfiguration.IMMEDIATE_FOR_TESTING, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -157,7 +157,7 @@ public class SyncProcessorTest {
             return true;
         });
 
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, blockStore, mock(ConsensusValidationMainchainView.class), blockSyncService, channelManager,
                 syncConfiguration, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -205,7 +205,7 @@ public class SyncProcessorTest {
         TestSystemProperties config = new TestSystemProperties();
         BlockSyncService blockSyncService = new BlockSyncService(config, store, blockchain, nodeInformation, SyncConfiguration.IMMEDIATE_FOR_TESTING);
 
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), blockSyncService, getChannelManager(),
                 SyncConfiguration.DEFAULT, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -248,7 +248,7 @@ public class SyncProcessorTest {
         BlockSyncService blockSyncService = new BlockSyncService(config, store, blockchain, nodeInformation, SyncConfiguration.IMMEDIATE_FOR_TESTING);
 
         final ChannelManager channelManager = mock(ChannelManager.class);
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, blockStore, mock(ConsensusValidationMainchainView.class), blockSyncService, channelManager,
                 SyncConfiguration.DEFAULT, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -327,7 +327,7 @@ public class SyncProcessorTest {
         TestSystemProperties config = new TestSystemProperties();
         BlockSyncService blockSyncService = new BlockSyncService(config, store, blockchain, nodeInformation, SyncConfiguration.IMMEDIATE_FOR_TESTING);
 
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), blockSyncService, getChannelManager(),
                 SyncConfiguration.IMMEDIATE_FOR_TESTING, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -362,7 +362,7 @@ public class SyncProcessorTest {
             return true;
         });
 
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), null, channelManager,
                 SyncConfiguration.IMMEDIATE_FOR_TESTING, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -402,7 +402,7 @@ public class SyncProcessorTest {
             return true;
         });
 
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), null, channelManager,
                 SyncConfiguration.IMMEDIATE_FOR_TESTING, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -433,7 +433,7 @@ public class SyncProcessorTest {
         SimpleMessageChannel sender = new SimpleMessageChannel(new byte[] { 0x01 });
 
 
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), null, getChannelManager(),
                 SyncConfiguration.IMMEDIATE_FOR_TESTING, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -452,7 +452,7 @@ public class SyncProcessorTest {
         SyncConfiguration syncConfiguration = SyncConfiguration.IMMEDIATE_FOR_TESTING;
         TestSystemProperties config = new TestSystemProperties();
         BlockSyncService blockSyncService = new BlockSyncService(config, new NetBlockStore(), blockchain, new BlockNodeInformation(), syncConfiguration);
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), blockSyncService, getChannelManager(),
                 syncConfiguration, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -480,7 +480,7 @@ public class SyncProcessorTest {
         SyncConfiguration syncConfiguration = SyncConfiguration.IMMEDIATE_FOR_TESTING;
         TestSystemProperties config = new TestSystemProperties();
         BlockSyncService blockSyncService = new BlockSyncService(config, new NetBlockStore(), blockchain, new BlockNodeInformation(), syncConfiguration);
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), blockSyncService, getChannelManager(),
                 syncConfiguration, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -509,7 +509,7 @@ public class SyncProcessorTest {
         SyncConfiguration syncConfiguration = SyncConfiguration.IMMEDIATE_FOR_TESTING;
         TestSystemProperties config = new TestSystemProperties();
         BlockSyncService blockSyncService = new BlockSyncService(config, new NetBlockStore(), blockchain, new BlockNodeInformation(), syncConfiguration);
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), blockSyncService, getChannelManager(),
                 syncConfiguration, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -541,7 +541,7 @@ public class SyncProcessorTest {
         SyncConfiguration syncConfiguration = SyncConfiguration.IMMEDIATE_FOR_TESTING;
         TestSystemProperties config = new TestSystemProperties();
         BlockSyncService blockSyncService = new BlockSyncService(config, new NetBlockStore(), blockchain, new BlockNodeInformation(), syncConfiguration);
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), blockSyncService, getChannelManager(),
                 syncConfiguration, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -569,7 +569,7 @@ public class SyncProcessorTest {
         SyncConfiguration syncConfiguration = SyncConfiguration.IMMEDIATE_FOR_TESTING;
         TestSystemProperties config = new TestSystemProperties();
         BlockSyncService blockSyncService = new BlockSyncService(config, new NetBlockStore(), blockchain, new BlockNodeInformation(), syncConfiguration);
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), blockSyncService, getChannelManager(),
                 syncConfiguration, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -604,7 +604,7 @@ public class SyncProcessorTest {
         TestSystemProperties config = new TestSystemProperties();
         BlockSyncService blockSyncService = new BlockSyncService(config, store, blockchain, nodeInformation, SyncConfiguration.IMMEDIATE_FOR_TESTING);
 
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), blockSyncService, getChannelManager(),
                 SyncConfiguration.IMMEDIATE_FOR_TESTING, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -655,7 +655,7 @@ public class SyncProcessorTest {
         TestSystemProperties config = new TestSystemProperties();
         BlockSyncService blockSyncService = new BlockSyncService(config, store, blockchain, nodeInformation, SyncConfiguration.IMMEDIATE_FOR_TESTING);
 
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), blockSyncService, getChannelManager(),
                 SyncConfiguration.IMMEDIATE_FOR_TESTING, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -716,7 +716,7 @@ public class SyncProcessorTest {
         TestSystemProperties config = new TestSystemProperties();
         BlockSyncService blockSyncService = new BlockSyncService(config, store, blockchain, nodeInformation, SyncConfiguration.IMMEDIATE_FOR_TESTING);
 
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), blockSyncService, getChannelManager(),
                 SyncConfiguration.IMMEDIATE_FOR_TESTING, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -806,7 +806,7 @@ public class SyncProcessorTest {
         TestSystemProperties config = new TestSystemProperties();
         BlockSyncService blockSyncService = new BlockSyncService(config, store, blockchain, nodeInformation, SyncConfiguration.IMMEDIATE_FOR_TESTING);
 
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), blockSyncService, getChannelManager(),
                 SyncConfiguration.IMMEDIATE_FOR_TESTING, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -857,7 +857,7 @@ public class SyncProcessorTest {
         TestSystemProperties config = new TestSystemProperties();
         BlockSyncService blockSyncService = new BlockSyncService(config, store, blockchain, nodeInformation, SyncConfiguration.IMMEDIATE_FOR_TESTING);
 
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), blockSyncService, getChannelManager(),
                 SyncConfiguration.IMMEDIATE_FOR_TESTING, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -898,7 +898,7 @@ public class SyncProcessorTest {
         TestSystemProperties config = new TestSystemProperties();
         BlockSyncService blockSyncService = new BlockSyncService(config, store, blockchain, nodeInformation, SyncConfiguration.IMMEDIATE_FOR_TESTING);
 
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, builder.getBlockStore(), mock(ConsensusValidationMainchainView.class), blockSyncService, channelManager,
                 SyncConfiguration.IMMEDIATE_FOR_TESTING, blockFactory, new DummyBlockValidationRule(),
                 new BlockCompositeRule(
@@ -961,7 +961,7 @@ public class SyncProcessorTest {
         TestSystemProperties config = new TestSystemProperties();
         BlockSyncService blockSyncService = new BlockSyncService(config, store, blockchain, nodeInformation, SyncConfiguration.IMMEDIATE_FOR_TESTING);
 
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, blockStore, mock(ConsensusValidationMainchainView.class), blockSyncService, channelManager,
                 SyncConfiguration.IMMEDIATE_FOR_TESTING, blockFactory, new DummyBlockValidationRule(),
                 new BlockCompositeRule(
@@ -1020,7 +1020,7 @@ public class SyncProcessorTest {
             return true;
         });
 
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), blockSyncService, channelManager,
                 SyncConfiguration.IMMEDIATE_FOR_TESTING, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
@@ -1065,7 +1065,7 @@ public class SyncProcessorTest {
         SyncConfiguration syncConfiguration = SyncConfiguration.IMMEDIATE_FOR_TESTING;
         TestSystemProperties config = new TestSystemProperties();
         BlockSyncService blockSyncService = new BlockSyncService(config, new NetBlockStore(), blockchain, new BlockNodeInformation(), syncConfiguration);
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), blockSyncService, getChannelManager(),
                 syncConfiguration, blockFactory, new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
                 new BlockCompositeRule(
@@ -1104,7 +1104,7 @@ public class SyncProcessorTest {
             msg[0] = invocation.getArgument(1);
             return true;
         });
-        SyncProcessor processor = new SyncProcessor(
+        SyncProcessorImpl processor = new SyncProcessorImpl(
                 blockchain, mock(org.ethereum.db.BlockStore.class), mock(ConsensusValidationMainchainView.class), blockSyncService, channelManager,
                 SyncConfiguration.IMMEDIATE_FOR_TESTING, blockFactory,
                 new ProofOfWorkRule(config).setFallbackMiningEnabled(false),
