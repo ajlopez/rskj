@@ -37,12 +37,13 @@ public class BlockHeaderParentCompositeRule implements BlockHeaderParentDependan
     public boolean isValid(BlockHeader header, Block parent) {
         String shortHash = header.getShortHash();
         long number = header.getNumber();
-        logger.debug("Validating header {} {}", shortHash, number);
+        logger.debug("Validating header parent {} {}", shortHash, number);
         for (BlockHeaderParentDependantValidationRule rule : this.rules) {
             if (!rule.isValid(header, parent)) {
                 logger.warn("Error Validating {} for header {} {}", rule.getClass(), shortHash, number);
                 return false;
             }
+            logger.debug("Rule passed {}", rule.getClass().getName());
         }
 
         return true;

@@ -1124,7 +1124,8 @@ public class RskContext implements NodeBootstrapper {
                             commonConstants.getUncleGenerationLimit(),
                             new BlockHeaderCompositeRule(
                                     getProofOfWorkRule(),
-                                    getForkDetectionDataRule(),
+                                    // TODO Experimental
+                                    // getForkDetectionDataRule(),
                                     blockTimeStampValidationRule,
                                     new ValidGasUsedRule()
                             ),
