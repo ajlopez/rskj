@@ -18,6 +18,7 @@
 
 package co.rsk.trie;
 
+import co.rsk.crypto.Keccak256;
 import org.ethereum.datasource.KeyValueDataSource;
 
 import java.util.Collections;
@@ -38,8 +39,8 @@ public class TrieStoreImpl implements TrieStore {
 
     private KeyValueDataSource store;
 
-    /** Weak references are removed once the tries are garbage collected */
-    private Set<Trie> savedTries = Collections.newSetFromMap(new WeakHashMap<>());
+    /** Weak references are removed once the trie hashes are garbage collected */
+    private Set<Keccak256> savedTrieHashes = Collections.newSetFromMap(new WeakHashMap<>());
 
     public TrieStoreImpl(KeyValueDataSource store) {
         this.store = store;
@@ -57,7 +58,9 @@ public class TrieStoreImpl implements TrieStore {
      * @param forceSaveRoot allows saving the root node even if it's embeddable
      */
     private void save(Trie trie, boolean forceSaveRoot) {
-        if (savedTries.contains(trie)) {
+        Keccak256 trieHash = trie.getHash();
+
+        if (savedTrieHashes.contains(trieHash)) {
             // it is guaranteed that the children of a saved node are also saved
             return;
         }
@@ -82,8 +85,8 @@ public class TrieStoreImpl implements TrieStore {
             return;
         }
 
-        this.store.put(trie.getHash().getBytes(), trie.toMessage());
-        savedTries.add(trie);
+        this.store.put(trieHash.getBytes(), trie.toMessage());
+        savedTrieHashes.add(trieHash);
     }
 
     @Override
@@ -99,7 +102,7 @@ public class TrieStoreImpl implements TrieStore {
         }
 
         Trie trie = Trie.fromMessage(message, this);
-        savedTries.add(trie);
+        savedTrieHashes.add(new Keccak256(hash));
         return Optional.of(trie);
     }
 
