@@ -25,7 +25,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -36,8 +35,6 @@ public class DataSourceWithCache implements KeyValueDataSource {
     private final KeyValueDataSource base;
     private final Map<ByteArrayWrapper, byte[]> uncommittedCache;
     private final Map<ByteArrayWrapper, byte[]> committedCache;
-
-    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
     public DataSourceWithCache(KeyValueDataSource base, int cacheSize) {
         this.cacheSize = cacheSize;
@@ -52,32 +49,17 @@ public class DataSourceWithCache implements KeyValueDataSource {
         ByteArrayWrapper wrappedKey = ByteUtil.wrap(key);
         byte[] value;
 
-        this.lock.readLock().lock();
-
-        try {
-            if (committedCache.containsKey(wrappedKey)) {
-                return committedCache.get(wrappedKey);
-            }
-
-            if (uncommittedCache.containsKey(wrappedKey)) {
-                return uncommittedCache.get(wrappedKey);
-            }
-
-            value = base.get(key);
-        }
-        finally {
-            this.lock.readLock().unlock();
+        if (committedCache.containsKey(wrappedKey)) {
+            return committedCache.get(wrappedKey);
         }
 
-        this.lock.writeLock().lock();
+        if (uncommittedCache.containsKey(wrappedKey)) {
+            return uncommittedCache.get(wrappedKey);
+        }
 
-        try {
-            //null value, as expected, is allowed here to be stored in committedCache
-            committedCache.put(wrappedKey, value);
-        }
-        finally {
-            this.lock.writeLock().unlock();
-        }
+        value = base.get(key);
+        //null value, as expected, is allowed here to be stored in committedCache
+        committedCache.put(wrappedKey, value);
 
         return value;
     }
@@ -92,22 +74,15 @@ public class DataSourceWithCache implements KeyValueDataSource {
     private byte[] put(ByteArrayWrapper wrappedKey, byte[] value) {
         Objects.requireNonNull(value);
 
-        this.lock.writeLock().lock();
+        // here I could check for equal data or just move to the uncommittedCache.
+        byte[] priorValue = committedCache.get(wrappedKey);
 
-        try {
-            // here I could check for equal data or just move to the uncommittedCache.
-            byte[] priorValue = committedCache.get(wrappedKey);
-
-            if (priorValue != null && Arrays.equals(priorValue, value)) {
-                return value;
-            }
-
-            committedCache.remove(wrappedKey);
-            this.putKeyValue(wrappedKey, value);
+        if (priorValue != null && Arrays.equals(priorValue, value)) {
+            return value;
         }
-        finally {
-            this.lock.writeLock().unlock();
-        }
+
+        committedCache.remove(wrappedKey);
+        this.putKeyValue(wrappedKey, value);
 
         return value;
     }
@@ -126,25 +101,18 @@ public class DataSourceWithCache implements KeyValueDataSource {
     }
 
     private void delete(ByteArrayWrapper wrappedKey) {
-        this.lock.writeLock().lock();
-
-        try {
-            // always mark for deletion if we don't know the state in the underlying store
-            if (!committedCache.containsKey(wrappedKey)) {
-                this.putKeyValue(wrappedKey, null);
-                return;
-            }
-
-            byte[] valueToRemove = committedCache.get(wrappedKey);
-
-            // a null value means we know for a fact that the key doesn't exist in the underlying store, so this is a noop
-            if (valueToRemove != null) {
-                this.putKeyValue(wrappedKey, null);
-                committedCache.remove(wrappedKey);
-            }
+        // always mark for deletion if we don't know the state in the underlying store
+        if (!committedCache.containsKey(wrappedKey)) {
+            this.putKeyValue(wrappedKey, null);
+            return;
         }
-        finally {
-            this.lock.writeLock().unlock();
+
+        byte[] valueToRemove = committedCache.get(wrappedKey);
+
+        // a null value means we know for a fact that the key doesn't exist in the underlying store, so this is a noop
+        if (valueToRemove != null) {
+            this.putKeyValue(wrappedKey, null);
+            committedCache.remove(wrappedKey);
         }
     }
 
@@ -155,24 +123,17 @@ public class DataSourceWithCache implements KeyValueDataSource {
         Stream<ByteArrayWrapper> uncommittedKeys;
         Set<ByteArrayWrapper> uncommittedKeysToRemove;
 
-        this.lock.readLock().lock();
-
-        try {
-            baseKeys = base.keys().stream().map(ByteArrayWrapper::new);
-            committedKeys = committedCache.entrySet().stream()
-                    .filter(e -> e.getValue() != null)
-                    .map(Map.Entry::getKey);
-            uncommittedKeys = uncommittedCache.entrySet().stream()
-                    .filter(e -> e.getValue() != null)
-                    .map(Map.Entry::getKey);
-            uncommittedKeysToRemove = uncommittedCache.entrySet().stream()
-                    .filter(e -> e.getValue() == null)
-                    .map(Map.Entry::getKey)
-                    .collect(Collectors.toSet());
-        }
-        finally {
-            this.lock.readLock().unlock();
-        }
+        baseKeys = base.keys().stream().map(ByteArrayWrapper::new);
+        committedKeys = committedCache.entrySet().stream()
+                .filter(e -> e.getValue() != null)
+                .map(Map.Entry::getKey);
+        uncommittedKeys = uncommittedCache.entrySet().stream()
+                .filter(e -> e.getValue() != null)
+                .map(Map.Entry::getKey);
+        uncommittedKeysToRemove = uncommittedCache.entrySet().stream()
+                .filter(e -> e.getValue() == null)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
 
         Set<ByteArrayWrapper> knownKeys = Stream.concat(Stream.concat(baseKeys, committedKeys), uncommittedKeys)
                 .collect(Collectors.toSet());
@@ -193,44 +154,30 @@ public class DataSourceWithCache implements KeyValueDataSource {
         // remove overlapping entries
         rows.keySet().removeAll(keysToRemove);
 
-        this.lock.writeLock().lock();
-
-        try {
-            rows.forEach(this::put);
-            keysToRemove.forEach(this::delete);
-        }
-        finally {
-            this.lock.writeLock().unlock();
-        }
+        rows.forEach(this::put);
+        keysToRemove.forEach(this::delete);
     }
 
     @Override
     public void flush() {
         Map<ByteArrayWrapper, byte[]> uncommittedBatch = new LinkedHashMap<>();
 
-        this.lock.writeLock().lock();
+        long saveTime = System.nanoTime();
 
-        try {
-            long saveTime = System.nanoTime();
+        this.uncommittedCache.forEach((key, value) -> {
+            if (value != null) {
+                uncommittedBatch.put(key, value);
+            }
+        });
 
-            this.uncommittedCache.forEach((key, value) -> {
-                if (value != null) {
-                    uncommittedBatch.put(key, value);
-                }
-            });
+        Set<ByteArrayWrapper> uncommittedKeysToRemove = uncommittedCache.entrySet().stream().filter(e -> e.getValue() == null).map(Map.Entry::getKey).collect(Collectors.toSet());
+        base.updateBatch(uncommittedBatch, uncommittedKeysToRemove);
+        committedCache.putAll(uncommittedCache);
+        uncommittedCache.clear();
 
-            Set<ByteArrayWrapper> uncommittedKeysToRemove = uncommittedCache.entrySet().stream().filter(e -> e.getValue() == null).map(Map.Entry::getKey).collect(Collectors.toSet());
-            base.updateBatch(uncommittedBatch, uncommittedKeysToRemove);
-            committedCache.putAll(uncommittedCache);
-            uncommittedCache.clear();
+        long totalTime = System.nanoTime() - saveTime;
 
-            long totalTime = System.nanoTime() - saveTime;
-
-            logger.trace("datasource flush: [{}]nano", totalTime);
-        }
-        finally {
-            this.lock.writeLock().unlock();
-        }
+        logger.trace("datasource flush: [{}]nano", totalTime);
     }
 
     public String getName() {
@@ -246,16 +193,9 @@ public class DataSourceWithCache implements KeyValueDataSource {
     }
 
     public void close() {
-        this.lock.writeLock().lock();
-
-        try {
-            flush();
-            base.close();
-            uncommittedCache.clear();
-            committedCache.clear();
-        }
-        finally {
-            this.lock.writeLock().unlock();
-        }
+        flush();
+        base.close();
+        uncommittedCache.clear();
+        committedCache.clear();
     }
 }
