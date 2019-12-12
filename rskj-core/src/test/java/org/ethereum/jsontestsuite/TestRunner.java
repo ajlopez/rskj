@@ -674,7 +674,7 @@ public class TestRunner {
     }
 
     private static Repository createRepository() {
-        return new MutableRepository(new MutableTrieCache(new MutableTrieImpl(null, new Trie())));
+        return new TopRepository(new Trie(), null);
     }
 
     public Block build(
