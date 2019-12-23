@@ -1367,7 +1367,7 @@ public class RskContext implements NodeBootstrapper {
 
     private SyncProcessor getSyncProcessor() {
         if (syncProcessor == null) {
-            syncProcessor = new SyncProcessor(
+            syncProcessor = new SyncProcessorImpl(
                     getBlockchain(),
                     getBlockStore(),
                     getConsensusValidationMainchainView(),
