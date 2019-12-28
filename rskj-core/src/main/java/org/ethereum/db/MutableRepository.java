@@ -88,11 +88,13 @@ public class MutableRepository implements Repository {
 
         AccountState result = null;
         byte[] accountData = getAccountData(addr);
+        logger.trace("account data retrieved");
 
         // If there is no account it returns null
         if (accountData != null && accountData.length != 0) {
             result = new AccountState(accountData);
         }
+
         return result;
     }
 
@@ -331,9 +333,10 @@ public class MutableRepository implements Repository {
     @Override
     public synchronized void updateAccountState(RskAddress addr, final AccountState accountState) {
         logger.trace("updating account state {}", addr);
-
         byte[] accountKey = trieKeyMapper.getAccountKey(addr);
+        logger.trace("get account key done");
         mutableTrie.put(accountKey, accountState.getEncoded());
+        logger.trace("updating account state {} done", addr);
     }
 
     @VisibleForTesting
@@ -359,6 +362,8 @@ public class MutableRepository implements Repository {
     }
 
     private byte[] getAccountData(RskAddress addr) {
-        return mutableTrie.get(trieKeyMapper.getAccountKey(addr));
+        byte[] acckey = trieKeyMapper.getAccountKey(addr);
+        logger.trace("get account key done");
+        return mutableTrie.get(acckey);
     }
 }

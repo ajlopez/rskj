@@ -97,6 +97,8 @@ public class Remasc {
      * Implements the actual Remasc distribution logic
      */
     void processMinersFees() {
+        logger.trace("process miners fees start");
+
         if (!(executionTx instanceof RemascTransaction)) {
             //Detect
             // 1) tx to remasc that is not the latest tx in a block
@@ -105,6 +107,8 @@ public class Remasc {
         }
 
         long blockNbr = executionBlock.getNumber();
+
+        logger.trace("block retrieved");
 
         long processingBlockNumber = blockNbr - remascConstants.getMaturity();
         if (processingBlockNumber < 1 ) {
@@ -115,13 +119,17 @@ public class Remasc {
         int uncleGenerationLimit = constants.getUncleGenerationLimit();
         Deque<Map<Long, List<Sibling>>> descendantsBlocks = new LinkedList<>();
 
+        logger.trace("current block retrieve start");
+
         // this search is noe optimized if have certainty that the execution block is not in a fork
         // larger than depth. The optimized algorithm already covers this case
         Block currentBlock = blockStore.getBlockAtDepthStartingAt(
                 remascConstants.getMaturity() - 1 - uncleGenerationLimit,
                 executionBlock.getParentHash().getBytes()
         );
+        logger.trace("current block retrieve done");
         descendantsBlocks.push(blockStore.getSiblingsFromBlockByHash(currentBlock.getHash()));
+        logger.trace("descendats blocks done");
 
         // descendants are stored in reverse order because the original order to pay siblings is defined in the way
         // blocks are ordered in the blockchain (the same as were stored in remasc contract)
@@ -130,7 +138,11 @@ public class Remasc {
             descendantsBlocks.push(blockStore.getSiblingsFromBlockByHash(currentBlock.getHash()));
         }
 
+        logger.trace("descendats blocks done 2");
+
         Block processingBlock = blockStore.getBlockByHash(currentBlock.getParentHash().getBytes());
+        logger.trace("processing block retrieved");
+
         BlockHeader processingBlockHeader = processingBlock.getHeader();
 
         // Adds current block fees to accumulated rewardBalance
@@ -175,6 +187,7 @@ public class Remasc {
         if (!siblings.isEmpty()) {
             // Block has siblings, reward distribution is more complex
             this.payWithSiblings(processingBlockHeader, syntheticReward, siblings, previousBrokenSelectionRule);
+            logger.trace("siblings pay done");
         } else {
             if (previousBrokenSelectionRule) {
                 // broken selection rule, apply punishment, ie burn part of the reward.
@@ -184,6 +197,8 @@ public class Remasc {
             }
             feesPayer.payMiningFees(processingBlockHeader.getHash().getBytes(), syntheticReward, processingBlockHeader.getCoinbase(), logs);
         }
+
+        logger.trace("pay mining fees done");
     }
 
     private Coin payToFederation(Constants constants, boolean isRskip85Enabled, Block processingBlock, BlockHeader processingBlockHeader, Coin syntheticReward) {
