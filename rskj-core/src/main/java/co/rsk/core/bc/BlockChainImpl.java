@@ -271,8 +271,8 @@ public class BlockChainImpl implements Blockchain {
 
             logger.trace("Start switchToBlockChain");
             switchToBlockChain(block, totalDifficulty);
-            logger.trace("Start saveReceipts");
-            saveReceipts(block, result);
+            //logger.trace("Start saveReceipts");
+            //saveReceipts(block, result);
             logger.trace("Start processBest");
             processBest(block);
             logger.trace("Start onBestBlock");
