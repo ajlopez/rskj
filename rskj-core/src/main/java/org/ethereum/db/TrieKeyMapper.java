@@ -25,6 +25,8 @@ import org.ethereum.util.ByteUtil;
 import org.ethereum.vm.DataWord;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 public class TrieKeyMapper {
     public static final int SECURE_KEY_SIZE = 10;
@@ -42,12 +44,21 @@ public class TrieKeyMapper {
     private RskAddress lastAddr;
     private byte[] lastAccountKey;
 
+    private final Map<RskAddress, byte[]> accountKeys = new HashMap<>();
+
     public synchronized byte[] getAccountKey(RskAddress addr) {
+        if (accountKeys.containsKey(addr)) {
+            byte[] key = accountKeys.get(addr);
+            return Arrays.copyOf(key, key.length);
+        }
+
         if (!addr.equals(lastAddr)) {
             byte[] secureKey = secureKeyPrefix(addr.getBytes());
             lastAccountKey = ByteUtil.merge(DOMAIN_PREFIX, secureKey, addr.getBytes());
             lastAddr = addr;
         }
+
+        accountKeys.put(addr, lastAccountKey);
 
         return Arrays.copyOf(lastAccountKey, lastAccountKey.length);
     }
