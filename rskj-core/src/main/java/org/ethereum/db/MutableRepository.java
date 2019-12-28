@@ -84,6 +84,8 @@ public class MutableRepository implements Repository {
 
     @Override
     public synchronized AccountState getAccountState(RskAddress addr) {
+        logger.trace("getting account state {}", addr);
+
         AccountState result = null;
         byte[] accountData = getAccountData(addr);
 
@@ -300,12 +302,16 @@ public class MutableRepository implements Repository {
 
     @Override
     public void save() {
+        logger.trace("save start");
         mutableTrie.save();
+        logger.trace("save done");
     }
 
     @Override
     public synchronized void commit() {
+        logger.trace("commit start");
         mutableTrie.commit();
+        logger.trace("commit done");
     }
 
     @Override
@@ -324,6 +330,8 @@ public class MutableRepository implements Repository {
 
     @Override
     public synchronized void updateAccountState(RskAddress addr, final AccountState accountState) {
+        logger.trace("updating account state {}", addr);
+
         byte[] accountKey = trieKeyMapper.getAccountKey(addr);
         mutableTrie.put(accountKey, accountState.getEncoded());
     }
