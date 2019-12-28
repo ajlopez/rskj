@@ -142,12 +142,16 @@ public class BlockExecutor {
             return false;
         }
 
+        /*
         boolean isValidStateRoot = validateStateRoot(block.getHeader(), result);
         if (!isValidStateRoot) {
             logger.error("Block {} [{}] given State Root is invalid", block.getNumber(), block.getShortHash());
             profiler.stop(metric);
             return false;
         }
+
+        logger.trace("state root is valid");
+*/
 
         boolean isValidReceiptsRoot = validateReceiptsRoot(block.getHeader(), result);
         if (!isValidReceiptsRoot) {
@@ -156,6 +160,8 @@ public class BlockExecutor {
             return false;
         }
 
+        logger.trace("receipts root is valid");
+
         boolean isValidLogsBloom = validateLogsBloom(block.getHeader(), result);
         if (!isValidLogsBloom) {
             logger.error("Block {} [{}] given Logs Bloom is invalid", block.getNumber(), block.getShortHash());
@@ -163,11 +169,15 @@ public class BlockExecutor {
             return false;
         }
 
+        logger.trace("logs bloom is valid");
+
         if (result.getGasUsed() != block.getGasUsed()) {
             logger.error("Block {} [{}] given gasUsed doesn't match: {} != {}", block.getNumber(), block.getShortHash(), block.getGasUsed(), result.getGasUsed());
             profiler.stop(metric);
             return false;
         }
+
+        logger.trace("gas used is valid");
 
         Coin paidFees = result.getPaidFees();
         Coin feesPaidToMiner = block.getFeesPaidToMiner();
@@ -178,6 +188,8 @@ public class BlockExecutor {
             return false;
         }
 
+        logger.trace("miner fee is valid");
+
         List<Transaction> executedTransactions = result.getExecutedTransactions();
         List<Transaction> transactionsList = block.getTransactionsList();
 
@@ -186,6 +198,8 @@ public class BlockExecutor {
             profiler.stop(metric);
             return false;
         }
+
+        logger.trace("transactions are valid");
 
         profiler.stop(metric);
         return true;

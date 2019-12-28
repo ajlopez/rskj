@@ -251,7 +251,7 @@ public class BlockChainImpl implements Blockchain {
             logger.trace("block: num: [{}] hash: [{}], executed after: [{}]nano", block.getNumber(), block.getShortHash(), totalTime);
 
             // the block is valid at this point
-            stateRootHandler.register(block.getHeader(), result.getFinalState());
+            // stateRootHandler.register(block.getHeader(), result.getFinalState());
             profiler.stop(metric);
         }
 
