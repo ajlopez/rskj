@@ -253,4 +253,17 @@ public class BlockSyncService {
 
         return blockchain.getBlockByHash(hash);
     }
+    /**
+     * hasBlockInStoreOrBlockchain checks the existence of a block in the net store or in the blockchain store
+     * (the existence of the block in the blockchain store DOES NOT ensure that the block is connected to a known chain)
+     */
+    public boolean hasBlockInStoreOrBlockchain(@Nonnull final byte[] hash) {
+        final Block block = store.getBlockByHash(hash);
+
+        if (block != null) {
+            return true;
+        }
+
+        return blockchain.hasBlockByHash(hash);
+    }
 }

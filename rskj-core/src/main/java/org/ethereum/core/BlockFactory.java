@@ -134,6 +134,27 @@ public class BlockFactory {
         );
     }
 
+    public long decodeNumber(byte[] encoded) {
+        RLPList block = RLP.decodeList(encoded);
+
+        if (block.size() != 3) {
+            throw new IllegalArgumentException("A block must have 3 exactly items");
+        }
+
+        RLPList rlpHeader = (RLPList) block.get(0);
+
+        if (rlpHeader.size() != RLP_HEADER_SIZE && rlpHeader.size() != RLP_HEADER_SIZE_WITH_MERGED_MINING) {
+            throw new IllegalArgumentException(String.format(
+                    "A block header must have 16 elements or 19 including merged-mining fields but it had %d",
+                    rlpHeader.size()
+            ));
+        }
+
+        byte[] nrBytes = rlpHeader.get(8).getRLPData();
+
+        return parseBigInteger(nrBytes).longValueExact();
+    }
+
     public BlockHeader decodeHeader(byte[] encoded) {
         return decodeHeader(RLP.decodeList(encoded), true);
     }
