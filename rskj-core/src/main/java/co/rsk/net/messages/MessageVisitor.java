@@ -19,18 +19,15 @@
 package co.rsk.net.messages;
 
 import co.rsk.config.RskSystemProperties;
-import co.rsk.crypto.Keccak256;
 import co.rsk.net.*;
 import co.rsk.scoring.EventType;
 import co.rsk.scoring.PeerScoringManager;
 import org.ethereum.core.Block;
-import org.ethereum.core.BlockIdentifier;
 import org.ethereum.core.Transaction;
 import org.ethereum.net.server.ChannelManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -227,16 +224,17 @@ public class MessageVisitor {
     }
 
     private void relayBlock(Block block) {
-        Keccak256 blockHash = block.getHash();
         final BlockNodeInformation nodeInformation = this.blockProcessor.getNodeInformation();
         final Set<NodeID> nodesWithBlock = nodeInformation.getNodesByBlock(block.getHash());
         final Set<NodeID> newNodes = this.syncProcessor.getKnownPeersNodeIDs().stream()
                 .filter(p -> !nodesWithBlock.contains(p))
                 .collect(Collectors.toSet());
 
+        final Set<NodeID> nodesSent = channelManager.broadcastBlock(block, newNodes);
 
-        List<BlockIdentifier> identifiers = new ArrayList<>();
-        identifiers.add(new BlockIdentifier(blockHash.getBytes(), block.getNumber()));
-        channelManager.broadcastBlockHash(identifiers, newNodes);
+        // These set of nodes now know about this block.
+        for (final NodeID nodeID : nodesSent) {
+            nodeInformation.addBlockToNode(block.getHash(), nodeID);
+        }
     }
 }
