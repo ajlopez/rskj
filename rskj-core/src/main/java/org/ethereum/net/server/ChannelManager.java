@@ -24,14 +24,12 @@ import co.rsk.net.Peer;
 import co.rsk.net.NodeID;
 import co.rsk.net.Status;
 import org.ethereum.core.Block;
-import org.ethereum.core.BlockIdentifier;
 import org.ethereum.core.Transaction;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.InetAddress;
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 
 /**
