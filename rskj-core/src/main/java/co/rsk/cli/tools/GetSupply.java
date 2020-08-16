@@ -80,9 +80,7 @@ public class GetSupply {
             if (left.isPresent()) {
                 Trie leftTrie = left.get();
 
-                if (!leftReference.isEmbeddable()) {
-                    supply = supply.add(processTrie(leftTrie));
-                }
+                supply = supply.add(processTrie(leftTrie));
             }
         }
 
@@ -94,9 +92,7 @@ public class GetSupply {
             if (right.isPresent()) {
                 Trie rightTrie = right.get();
 
-                if (!rightReference.isEmbeddable()) {
-                    supply = supply.add(processTrie(rightTrie));
-                }
+                supply = supply.add(processTrie(rightTrie));
             }
         }
 
