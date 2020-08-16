@@ -62,8 +62,9 @@ public class GetSupply {
     }
 
     private static Coin processTrie(Trie trie) {
-        if (trie.getValueLength().compareTo(Uint24.ZERO) != 0) {
-            byte[] value = trie.getValue();
+        byte[] value = trie.getValue();
+
+        if (value != null) {
             AccountState accountState = new AccountState(value);
 
             return accountState.getBalance();
