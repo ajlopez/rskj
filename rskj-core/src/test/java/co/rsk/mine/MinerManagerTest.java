@@ -78,6 +78,68 @@ public class MinerManagerTest {
     }
 
     @Test
+    public void startAndStopMinerClient() {
+        Assert.assertEquals(0, blockchain.getBestBlock().getNumber());
+
+        MinerServerImpl minerServer = getMinerServer();
+        MinerClientImpl minerClient = getMinerClient(minerServer);
+
+        minerClient.start();
+
+        Awaitility.await().timeout(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
+            @Override
+            public Boolean call() throws Exception {
+                return minerClient.isMining();
+            }
+        });
+
+        Assert.assertTrue(minerClient.isMining());
+
+        minerClient.stop();
+
+        Awaitility.await().timeout(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
+            @Override
+            public Boolean call() throws Exception {
+                return !minerClient.isMining();
+            }
+        });
+
+        Assert.assertFalse(minerClient.isMining());
+    }
+
+    @Test
+    public void startAndStopMinerClientTwice() {
+        Assert.assertEquals(0, blockchain.getBestBlock().getNumber());
+
+        MinerServerImpl minerServer = getMinerServer();
+        MinerClientImpl minerClient = getMinerClient(minerServer);
+
+        minerClient.start();
+        minerClient.start();
+
+        Awaitility.await().timeout(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
+            @Override
+            public Boolean call() throws Exception {
+                return minerClient.isMining();
+            }
+        });
+
+        Assert.assertTrue(minerClient.isMining());
+
+        minerClient.stop();
+        minerClient.stop();
+
+        Awaitility.await().timeout(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
+            @Override
+            public Boolean call() throws Exception {
+                return !minerClient.isMining();
+            }
+        });
+
+        Assert.assertFalse(minerClient.isMining());
+    }
+
+    @Test
     public void refreshWorkRunOnce() {
         Assert.assertEquals(0, blockchain.getBestBlock().getNumber());
 

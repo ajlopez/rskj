@@ -25,4 +25,8 @@ public interface MinerClient extends InternalService {
     boolean mineBlock();
 
     boolean isMining();
+
+    void start();
+
+    void stop();
 }

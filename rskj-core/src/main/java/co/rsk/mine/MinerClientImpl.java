@@ -47,7 +47,7 @@ public class MinerClientImpl implements MinerClient {
     private final Duration delayBetweenBlocks;
     private final Duration delayBetweenRefreshes;
 
-    private volatile boolean stop = false;
+    private volatile boolean stop = true;
 
     private volatile boolean isMining = false;
 
@@ -65,6 +65,12 @@ public class MinerClientImpl implements MinerClient {
 
     @Override
     public void start() {
+        if (!stop) {
+            return;
+        }
+
+        stop = false;
+
         aTimer = new Timer("Refresh work for mining");
         aTimer.schedule(createRefreshWork(), 0, this.delayBetweenRefreshes.toMillis());
 
@@ -177,9 +183,13 @@ public class MinerClientImpl implements MinerClient {
 
     @Override
     public void stop() {
+        if (stop) {
+            return;
+        }
+
         stop = true;
 
-        if (aTimer!=null) {
+        if (aTimer != null) {
             aTimer.cancel();
         }
     }
