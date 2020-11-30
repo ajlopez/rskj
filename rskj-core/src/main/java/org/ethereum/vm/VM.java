@@ -105,7 +105,6 @@ public class VM {
 
     private long memWords; // parameters for logging
     private long gasCost;
-    private long gasBefore; // only for tracing
     private boolean isLogEnabled;
 
     // Subroutines return stack
@@ -2113,7 +2112,6 @@ public class VM {
     }
 
     public void initDebugData() {
-        gasBefore = 0;
         memWords = 0;
     }
 
