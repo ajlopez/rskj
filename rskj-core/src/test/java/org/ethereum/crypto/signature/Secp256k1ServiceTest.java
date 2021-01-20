@@ -38,7 +38,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.*;
 
-@Ignore
+//@Ignore
 public abstract class Secp256k1ServiceTest {
 
     private static final Logger logger = LoggerFactory.getLogger(Secp256k1ServiceTest.class);

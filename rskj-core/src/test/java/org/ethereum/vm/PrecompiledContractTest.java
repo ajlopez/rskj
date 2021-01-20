@@ -21,6 +21,9 @@ package org.ethereum.vm;
 
 import co.rsk.config.TestSystemProperties;
 import org.bouncycastle.util.encoders.Hex;
+import org.ethereum.crypto.ECKey;
+import org.ethereum.crypto.HashUtil;
+import org.ethereum.crypto.signature.ECDSASignature;
 import org.ethereum.util.BIUtil;
 import org.ethereum.util.ByteUtil;
 import org.ethereum.vm.PrecompiledContracts.PrecompiledContract;
@@ -123,6 +126,116 @@ public class PrecompiledContractTest {
         // todo(fedejinich) analyse this case
         assertEquals(expected, ByteUtil.toHexString(result));
     }
+
+    @Test
+    public void ecRecoverTest1b() throws VMException {
+        byte[] data = new byte[32 * 4];
+        String messageHash = "f7cf90057f86838e5efd677f4741003ab90910e4e2736ff4d7999519d162d1ed";
+        BigInteger r = new BigInteger("28824799845160661199077176548860063813328724131408018686643359460017962873020");
+        BigInteger s = new BigInteger("48456094880180616145578324187715054843822774625773874469802229460318542735739");
+
+        System.arraycopy(Hex.decode(messageHash), 0, data, 0, 32);
+        // v == 27
+        data[32 + 31] = 27;
+        System.arraycopy(r.toByteArray(), 0, data, 64, 32);
+        System.arraycopy(s.toByteArray(), 0, data, 96, 32);
+
+        DataWord addr = DataWord.valueFromHex("0000000000000000000000000000000000000000000000000000000000000001");
+        PrecompiledContract contract = precompiledContracts.getContractForAddress(null, addr);
+        String expected = "000000000000000000000000dcc703c0e500b653ca82273b7bfad8045d85a470";
+
+        byte[] result = contract.execute(data);
+
+        System.out.println(ByteUtil.toHexString(result));
+
+        assertEquals(expected, ByteUtil.toHexString(result));
+    }
+
+    @Test
+    public void ecRecoverTest2() throws VMException {
+        byte[] data = Hex.decode("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549");
+        DataWord addr = DataWord.valueFromHex("0000000000000000000000000000000000000000000000000000000000000001");
+        PrecompiledContract contract = precompiledContracts.getContractForAddress(null, addr);
+        String expected = "000000000000000000000000ae387fcfeb723c3f5964509af111cf5a67f30661";
+
+        byte[] result = contract.execute(data);
+
+        System.out.println(Hex.toHexString(result));
+    }
+
+    @Test
+    public void ecRecoverTest3() throws VMException {
+        byte[] data = Hex.decode("0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
+        //byte[] data = new byte[0];
+        DataWord addr = DataWord.valueFromHex("0000000000000000000000000000000000000000000000000000000000000001");
+        PrecompiledContract contract = precompiledContracts.getContractForAddress(null, addr);
+        String expected = "000000000000000000000000ae387fcfeb723c3f5964509af111cf5a67f30661";
+
+        byte[] result = contract.execute(data);
+
+        System.out.println(Hex.toHexString(result));
+    }
+
+    @Test
+    public void ecRecoverTest4() throws VMException {
+        byte[] pk = new byte[0];
+        ECKey fromPrivate = ECKey.fromPrivate(pk);
+        ECKey fromPrivateDecompress = fromPrivate.decompress();
+        String pubKeyExpected = Hex.toHexString(fromPrivateDecompress.getPubKey());
+        String addressExpected = Hex.toHexString(fromPrivateDecompress.getAddress());
+
+        // 00
+        System.out.println(pubKeyExpected);
+        // dcc703c0e500b653ca82273b7bfad8045d85a470
+        System.out.println(addressExpected);
+    }
+
+    @Test
+    public void ecRecoverTest5() throws VMException {
+        byte[] hash = HashUtil.keccak256("This is an example of a signed message.".getBytes());
+        byte[] pk = new byte[0];
+        ECKey fromPrivate = ECKey.fromPrivate(pk);
+        ECKey.ECDSASignature signature = fromPrivate.sign(hash);
+        ECKey fromPrivateDecompress = fromPrivate.decompress();
+        String pubKeyExpected = Hex.toHexString(fromPrivateDecompress.getPubKey());
+        String addressExpected = Hex.toHexString(fromPrivateDecompress.getAddress());
+
+        // 00
+        System.out.println(pubKeyExpected);
+        // dcc703c0e500b653ca82273b7bfad8045d85a470
+        System.out.println(addressExpected);
+    }
+
+    @Test
+    public void ecRecoverTest6() throws VMException {
+        byte[] hash = Hex.decode("f7cf90057f86838e5efd677f4741003ab90910e4e2736ff4d7999519d162d1ed");
+        byte[] pk = new byte[0];
+        ECKey fromPrivate = ECKey.fromPrivate(pk);
+
+        System.out.println(Hex.toHexString(fromPrivate.decompress().getAddress()));
+
+        ECKey.ECDSASignature signature = fromPrivate.sign(hash);
+        BigInteger r = signature.r;
+        BigInteger s = signature.s;
+
+        byte[] data = new byte[32 * 4];
+
+        System.arraycopy(hash, 0, data, 0, 32);
+        data[32 + 31] = signature.v;
+        System.arraycopy(r.toByteArray(), 0, data, 64, 32);
+        System.arraycopy(s.toByteArray(), 0, data, 96, 32);
+
+        DataWord addr = DataWord.valueFromHex("0000000000000000000000000000000000000000000000000000000000000001");
+        PrecompiledContract contract = precompiledContracts.getContractForAddress(null, addr);
+        String expected = "000000000000000000000000dcc703c0e500b653ca82273b7bfad8045d85a470";
+
+        byte[] result = contract.execute(data);
+
+        System.out.println(ByteUtil.toHexString(result));
+
+        assertEquals(expected, ByteUtil.toHexString(result));
+    }
+
     @Test
     public void modExpTest() throws VMException {
 
