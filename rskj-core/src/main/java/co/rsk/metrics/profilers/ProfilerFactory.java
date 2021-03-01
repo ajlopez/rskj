@@ -1,7 +1,7 @@
 package co.rsk.metrics.profilers;
 
 
-import co.rsk.metrics.profilers.impl.DummyProfiler;
+import co.rsk.metrics.profilers.impl.ProxyProfiler;
 
 
 /**
@@ -25,7 +25,7 @@ public final class ProfilerFactory {
 
     public static Profiler getInstance(){
         if(instance == null){
-            configure(new DummyProfiler());
+            configure(new ProxyProfiler());
         }
 
         return instance;

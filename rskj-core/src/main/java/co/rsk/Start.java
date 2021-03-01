@@ -17,6 +17,9 @@
  */
 package co.rsk;
 
+import co.rsk.metrics.profilers.ProfilerFactory;
+import co.rsk.metrics.profilers.impl.ProxyProfiler;
+import co.rsk.metrics.profilers.impl.full.ExecutionProfiler;
 import co.rsk.util.PreflightChecksUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +33,9 @@ public class Start {
     public static void main(String[] args) {
         Thread.currentThread().setName("main");
         RskContext ctx = new RskContext(args);
+
+        ((ProxyProfiler)(ProfilerFactory.getInstance())).setInnerProfiler(new ExecutionProfiler());
+
         PreflightChecksUtils preflightChecks = new PreflightChecksUtils(ctx);
         NodeRunner runner = ctx.getNodeRunner();
         try {
