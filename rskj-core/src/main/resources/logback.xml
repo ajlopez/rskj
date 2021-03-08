@@ -39,9 +39,9 @@
         </rollingPolicy>
     </appender>
 
-    <logger name="execute" level="INFO"/>
-    <logger name="blockvalidator" level="INFO"/>
-    <logger name="blockexecutor" level="INFO"/>
+    <logger name="execute" level="TRACE"/>
+    <logger name="blockvalidator" level="TRACE"/>
+    <logger name="blockexecutor" level="TRACE"/>
     <logger name="general" level="INFO"/>
     <logger name="gaspricetracker" level="INFO"/>
     <logger name="web3" level="INFO"/>
@@ -66,8 +66,9 @@
     <logger name="peermonitor" level="INFO"/>
     <logger name="bridge" level="INFO"/>
     <logger name="rlp" level="INFO"/>
-    <logger name="messagehandler" level="INFO"/>
+    <logger name="messagehandler" level="TRACE"/>
     <logger name="sync" level="INFO"/>
+    <logger name="syncprocessor" level="TRACE"/>
     <logger name="BtcToRskClient" level="INFO"/>
     <logger name="ui" level="INFO"/>
     <logger name="java.nio" level="INFO"/>
@@ -76,8 +77,8 @@
     <logger name="BridgeSupport" level="INFO"/>
     <logger name="jsonrpc" level="INFO"/>
     <logger name="wallet" level="INFO"/>
-    <logger name="blockchain" level="INFO"/>
-    <logger name="blockprocessor" level="INFO"/>
+    <logger name="blockchain" level="TRACE"/>
+    <logger name="blockprocessor" level="TRACE"/>
     <logger name="asyncblockprocessor" level="INFO"/>
     <logger name="state" level="INFO"/>
     <logger name="org.bitcoinj" level="INFO"/>
